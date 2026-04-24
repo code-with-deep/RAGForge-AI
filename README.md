@@ -1,6 +1,6 @@
 # RAGForge AI: Production-Grade Advanced RAG
 
-This repository contains the completed **Assignment #7: Advanced RAG with LangChain** for Excellence Technologies. It is a full-stack, production-ready Retrieval-Augmented Generation platform built to address the limitations of basic RAG systems by implementing hybrid search, cross-encoder re-ranking, advanced chunking strategies, and automated evaluation.
+This repository contains the completed **Advanced RAG with LangChain**. It is a full-stack, production-ready Retrieval-Augmented Generation platform built to address the limitations of basic RAG systems by implementing hybrid search, cross-encoder re-ranking, advanced chunking strategies, and automated evaluation.
 
 ---
 
@@ -76,8 +76,6 @@ The project includes an automated evaluation pipeline (`eval_dataset.json` conta
 ---
 
 ## 📸 Screenshots
-
-*(To the Developer: Please capture screenshots of your running application and place them in a `/screenshots` folder at the root of the project to replace these placeholders before submission.)*
 
 ### 1. Pipeline Visualizer & Trace
 ![Pipeline Visualizer UI](./screenshots/pipeline_visualizer.png)

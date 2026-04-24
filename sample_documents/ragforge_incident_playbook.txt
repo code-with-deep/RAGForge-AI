@@ -1,0 +1,10 @@
+RAGForge Retrieval Incident Playbook
+
+If an answer is incomplete, first inspect the retrieved chunks, metadata filters, and the final prompt. The retrieval debugger reports whether candidates were filtered out, whether vector search returned hits, and whether BM25 returned hits.
+
+Error code E-4021 is an exact-match retrieval case. Semantic search may retrieve general error-handling content, while BM25 should match the literal error code E-4021. Hybrid search is recommended for product codes, identifiers, dates, and error numbers.
+
+High latency should be investigated by checking latency per step: query transformation, retrieval, re-ranking, context assembly, and LLM generation. Re-ranking can be disabled during triage, but production comparisons should keep Hybrid + Re-Rank as the default strategy.
+
+If context recall is low, broaden filters, enable step-back prompting, try multi-query expansion, or use query decomposition for multi-part questions. If the context window is too large, reduce selected chunks or use reranking to keep the strongest evidence.
+
