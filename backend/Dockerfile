@@ -10,7 +10,6 @@ COPY pyproject.toml requirements.txt ./
 RUN uv pip install --system -r requirements.txt
 
 COPY app ./app
-COPY storage ./storage
 
 # Pre-download ML models to prevent timeouts during deployment
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
