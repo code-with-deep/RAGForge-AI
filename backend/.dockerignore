@@ -1,0 +1,9 @@
+.venv
+__pycache__
+**/__pycache__
+storage/chroma
+storage/uploads/*
+storage/*.db
+storage/*.db-*
+*.pyc
+

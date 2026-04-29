@@ -1,0 +1,10 @@
+RAGForge Security and Data Policy
+
+Authentication uses signup and login endpoints with JWT bearer tokens. Protected APIs can be enabled with AUTH_REQUIRED=true. When a token is supplied, documents, queries, and evaluation records are associated with the user id so each user can work with user-specific data.
+
+SQLite stores document metadata, chunk metadata, query history, pipeline traces, token accounting, and evaluation results. Chroma stores vectorized chunks with the same chunk identifiers that appear in SQLite.
+
+Deleting a document removes the document metadata, all SQLite chunk rows, and all Chroma vector ids for that document. Uploaded files stored under the backend upload directory are also removed during deletion.
+
+The query history keeps the final prompt sent to the LLM, transformed queries, retrieved chunks, selected chunks, latency, and generated answer for debugging and audit workflows.
+

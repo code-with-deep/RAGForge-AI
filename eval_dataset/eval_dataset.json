@@ -1,0 +1,102 @@
+[
+  {
+    "question": "Which document file types does RAGForge ingest and which LangChain loaders are used?",
+    "reference_answer": "RAGForge ingests PDF, TXT, DOCX, and Markdown using PyPDFLoader, TextLoader, UnstructuredWordDocumentLoader, and UnstructuredMarkdownLoader or a text fallback.",
+    "expected_context": ["PDF files through PyPDFLoader", "text files through TextLoader", "DOCX files through UnstructuredWordDocumentLoader", "Markdown files through UnstructuredMarkdownLoader"]
+  },
+  {
+    "question": "What metadata is enriched during ingestion?",
+    "reference_answer": "The ingestion pipeline enriches chunks with source, page_number, file_type, upload_date, tags, file size, total pages, and detected section headers.",
+    "expected_context": ["source, page_number, file_type, upload_date, tags", "detected section headers"]
+  },
+  {
+    "question": "What chunk size and overlap are used for recursive chunking?",
+    "reference_answer": "Recursive chunking uses a 500 token chunk size with 50 tokens of overlap.",
+    "expected_context": ["Recursive chunking uses a 500 token chunk size with 50 tokens of overlap"]
+  },
+  {
+    "question": "How does semantic chunking decide where to split?",
+    "reference_answer": "Semantic chunking groups neighboring sentences while embedding similarity remains high and starts a new chunk when similarity drops.",
+    "expected_context": ["groups neighboring sentences while their embedding similarity remains high", "starts a new chunk when similarity drops"]
+  },
+  {
+    "question": "How does parent-child chunking work in RAGForge?",
+    "reference_answer": "Parent-child chunking creates 200 token child chunks for retrieval and 1000 token parent chunks for LLM context.",
+    "expected_context": ["small 200 token child chunks for retrieval", "larger 1000 token parent chunks for LLM context"]
+  },
+  {
+    "question": "What is section-based chunking best at preserving?",
+    "reference_answer": "Section-based chunking splits at H1 and H2 headers and preserves the section name in metadata.",
+    "expected_context": ["splits documents at H1 and H2 style headers", "keeps the section name in metadata"]
+  },
+  {
+    "question": "How does hybrid search combine search types?",
+    "reference_answer": "Hybrid search combines semantic vector results with BM25 keyword results.",
+    "expected_context": ["Hybrid search combines semantic vector results with BM25 keyword results"]
+  },
+  {
+    "question": "What value of k does Reciprocal Rank Fusion use?",
+    "reference_answer": "RAGForge uses Reciprocal Rank Fusion with k=60 and configurable semantic and keyword weights.",
+    "expected_context": ["Reciprocal Rank Fusion merges both lists with k=60"]
+  },
+  {
+    "question": "How many hybrid candidates are reranked and how many chunks are sent to generation?",
+    "reference_answer": "Hybrid + Re-Rank retrieves the top 20 hybrid candidates, scores them with a cross-encoder, and sends the top 5 chunks to generation.",
+    "expected_context": ["retrieves the top 20 hybrid candidates", "sends the top 5 chunks to generation"]
+  },
+  {
+    "question": "Which query transformation techniques are implemented?",
+    "reference_answer": "RAGForge implements multi-query expansion, HyDE, query decomposition, and step-back prompting.",
+    "expected_context": ["Multi-query expansion", "HyDE", "Query decomposition", "Step-back prompting"]
+  },
+  {
+    "question": "What does HyDE generate before retrieval?",
+    "reference_answer": "HyDE generates a hypothetical answer passage and retrieves by that passage.",
+    "expected_context": ["HyDE generates a hypothetical answer passage and retrieves by that passage"]
+  },
+  {
+    "question": "What pipeline details are recorded for every query?",
+    "reference_answer": "RAGForge records the original query, transformed queries, retrieved chunks, scores, selected context, full LLM prompt, answer, token usage, and latency per step.",
+    "expected_context": ["original query, transformed queries, top retrieved chunks", "full LLM prompt, generated answer, token usage, and latency per step"]
+  },
+  {
+    "question": "How is authentication implemented?",
+    "reference_answer": "Authentication uses signup and login endpoints with JWT bearer tokens, and protected APIs can be enabled with AUTH_REQUIRED=true.",
+    "expected_context": ["signup and login endpoints with JWT bearer tokens", "AUTH_REQUIRED=true"]
+  },
+  {
+    "question": "How does the platform support user-specific data?",
+    "reference_answer": "When a token is supplied, documents, queries, and evaluation records are associated with the user id.",
+    "expected_context": ["documents, queries, and evaluation records are associated with the user id"]
+  },
+  {
+    "question": "What happens when a document is deleted?",
+    "reference_answer": "Deleting a document removes document metadata, SQLite chunk rows, Chroma vector ids, and uploaded files under the backend upload directory.",
+    "expected_context": ["removes the document metadata, all SQLite chunk rows, and all Chroma vector ids", "Uploaded files stored under the backend upload directory are also removed"]
+  },
+  {
+    "question": "Which four evaluation metrics are used?",
+    "reference_answer": "The evaluation metrics are faithfulness, answer relevancy, context precision, and context recall.",
+    "expected_context": ["Faithfulness", "Answer relevancy", "Context precision", "Context recall"]
+  },
+  {
+    "question": "What does context precision reward?",
+    "reference_answer": "Context precision is rank-aware and rewards relevant chunks appearing higher in the retrieved list.",
+    "expected_context": ["Context precision is rank-aware and rewards relevant chunks appearing higher"]
+  },
+  {
+    "question": "What does context recall measure?",
+    "reference_answer": "Context recall measures whether retrieved context covers the expected evidence needed for the reference answer.",
+    "expected_context": ["Context recall measures whether the retrieved context covers the expected evidence"]
+  },
+  {
+    "question": "How does the evaluation dashboard rank strategies?",
+    "reference_answer": "The leaderboard ranks strategies by the average of faithfulness, answer relevancy, context precision, and context recall.",
+    "expected_context": ["leaderboard ranks strategies by the average of faithfulness, answer relevancy, context precision, and context recall"]
+  },
+  {
+    "question": "Why is hybrid search recommended for error code E-4021?",
+    "reference_answer": "E-4021 is an exact-match case where BM25 should match the literal error code while semantic search may retrieve only general error-handling content.",
+    "expected_context": ["Error code E-4021 is an exact-match retrieval case", "BM25 should match the literal error code E-4021"]
+  }
+]
