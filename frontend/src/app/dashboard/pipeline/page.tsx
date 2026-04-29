@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { getPipeline } from "@/lib/api";
 import type { QueryResponse } from "@/lib/types";
@@ -12,12 +13,15 @@ import { useAppStore } from "@/store/useAppStore";
 
 export default function PipelinePage() {
   const latest = useAppStore((state) => state.latestQuery);
-  const [queryId, setQueryId] = useState(latest?.query_id ?? "");
+  const searchParams = useSearchParams();
+  const urlId = searchParams.get("id") ?? "";
+  const [queryId, setQueryId] = useState(urlId || (latest?.query_id ?? ""));
   const [remote, setRemote] = useState<QueryResponse | null>(null);
   const result = remote ?? latest;
 
-  async function load() {
-    const payload = await getPipeline(queryId);
+  const load = useCallback(async (id?: string) => {
+    const target = id ?? queryId;
+    const payload = await getPipeline(target);
     const data = payload as Record<string, unknown>;
     const base: QueryResponse =
       latest ?? {
@@ -51,7 +55,14 @@ export default function PipelinePage() {
       selected_chunks: base.selected_chunks,
       debugging: base.debugging
     });
-  }
+  }, [queryId, latest]);
+
+  // Auto-load when navigated from history page with ?id=
+  useEffect(() => {
+    if (urlId) load(urlId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlId]);
+
 
   return (
     <div className="space-y-6">
@@ -62,7 +73,7 @@ export default function PipelinePage() {
       <Panel>
         <PanelHeader>
           <PanelTitle>Query ID</PanelTitle>
-          <Button onClick={load} disabled={!queryId} size="sm">
+          <Button onClick={() => load()} disabled={!queryId} size="sm">
             <Search className="h-4 w-4" />
             Load
           </Button>

@@ -64,11 +64,14 @@ export function DocumentList() {
 
   async function remove(document: DocumentOut) {
     setLoading(true);
+    setError(null);
     try {
       await deleteDocument(document.id);
       setSelected(null);
       setChunks([]);
       await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
     } finally {
       setLoading(false);
     }

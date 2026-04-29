@@ -59,7 +59,7 @@ export default function HistoryPage() {
             {items.map((item) => (
               <Link
                 key={item.id}
-                href={`/dashboard/pipeline`}
+                href={`/dashboard/pipeline?id=${item.id}`}
                 className="flex items-center gap-4 rounded-lg border border-border bg-background p-4 transition-all hover:border-primary/30 hover:shadow-sm"
               >
                 <div className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">

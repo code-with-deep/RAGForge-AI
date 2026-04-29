@@ -69,6 +69,9 @@ export function LandingNavbar() {
 
         {/* Mobile hamburger */}
         <button
+          aria-label={open ? "Close menu" : "Open menu"}
+          aria-expanded={open}
+          aria-controls="mobile-nav"
           className="grid h-10 w-10 place-items-center rounded-lg text-foreground md:hidden"
           onClick={() => setOpen(!open)}
         >
@@ -78,7 +81,7 @@ export function LandingNavbar() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="glass-strong animate-slide-down border-t border-border md:hidden">
+        <div id="mobile-nav" className="glass-strong animate-slide-down border-t border-border md:hidden">
           <nav className="flex flex-col gap-1 px-6 py-4">
             {links.map((link) => (
               <Link

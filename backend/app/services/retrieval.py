@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Iterable
 
 from rank_bm25 import BM25Okapi
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_
 
 from app.config import get_settings
 from app.models.database import ChunkRecord, DocumentRecord
@@ -158,39 +160,64 @@ class RetrievalService:
         user_id: str | None = None,
     ) -> list[ChunkRecord]:
         query = self.db.query(ChunkRecord).join(DocumentRecord)
+
+        # --- DB-level filters (pushed into SQL) ---
         if user_id:
             query = query.filter(DocumentRecord.user_id == user_id)
         if filters.date_start:
-            query = query.filter(DocumentRecord.upload_date >= filters.date_start)
+            try:
+                dt_start = datetime.fromisoformat(filters.date_start)
+                if dt_start.tzinfo is None:
+                    dt_start = dt_start.replace(tzinfo=timezone.utc)
+                query = query.filter(DocumentRecord.upload_date >= dt_start)
+            except ValueError:
+                pass  # malformed date — skip filter rather than crash
         if filters.date_end:
-            query = query.filter(DocumentRecord.upload_date <= filters.date_end)
-        records = query.all()
-        return [record for record in records if self._matches_filters(record, filters)]
+            try:
+                dt_end = datetime.fromisoformat(filters.date_end)
+                if dt_end.tzinfo is None:
+                    dt_end = dt_end.replace(tzinfo=timezone.utc)
+                query = query.filter(DocumentRecord.upload_date <= dt_end)
+            except ValueError:
+                pass  # malformed date — skip filter rather than crash
 
-    def _matches_filters(self, record: ChunkRecord, filters: MetadataFilters) -> bool:
+        # strategy / source / page filters — all indexed columns
         strategies = filters.chunk_strategies or sorted(SEARCHABLE_STRATEGIES)
-        if record.strategy not in strategies:
-            return False
+        query = query.filter(ChunkRecord.strategy.in_(strategies))
 
-        conditions: list[bool] = []
         if filters.sources:
-            conditions.append(record.source in filters.sources)
+            query = query.filter(ChunkRecord.source.in_(filters.sources))
         if filters.page_start is not None:
-            conditions.append(record.page_number is not None and record.page_number >= filters.page_start)
+            query = query.filter(
+                ChunkRecord.page_number.isnot(None),
+                ChunkRecord.page_number >= filters.page_start,
+            )
         if filters.page_end is not None:
-            conditions.append(record.page_number is not None and record.page_number <= filters.page_end)
-        if filters.sections:
-            section = (record.section or "").lower()
-            conditions.append(any(item.lower() in section for item in filters.sections))
-        if filters.tags:
-            tags = set(from_json(record.tags_json, []))
-            conditions.append(bool(tags.intersection({tag.lower() for tag in filters.tags})))
+            query = query.filter(
+                ChunkRecord.page_number.isnot(None),
+                ChunkRecord.page_number <= filters.page_end,
+            )
 
-        if not conditions:
-            return True
-        if filters.logic.value == "or" and len(conditions) > 1:
-            return any(conditions)
-        return all(conditions)
+        # sections — case-insensitive substring match
+        if filters.sections:
+            section_clauses = [
+                ChunkRecord.section.ilike(f"%{s}%") for s in filters.sections
+            ]
+            section_filter = or_(*section_clauses)
+            query = query.filter(section_filter)
+
+        # tags — stored as JSON text, use LIKE per tag
+        if filters.tags:
+            tag_clauses = [
+                ChunkRecord.tags_json.ilike(f"%{tag.lower()}%")
+                for tag in filters.tags
+            ]
+            if filters.logic.value == "or" and len(tag_clauses) > 1:
+                query = query.filter(or_(*tag_clauses))
+            else:
+                query = query.filter(and_(*tag_clauses))
+
+        return query.all()
 
     def _vector_search(
         self,

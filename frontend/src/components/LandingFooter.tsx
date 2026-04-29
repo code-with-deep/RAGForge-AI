@@ -32,13 +32,31 @@ export function LandingFooter() {
               Production-grade Advanced RAG platform for accurate, transparent, and measurable AI retrieval.
             </p>
             <div className="mt-6 flex gap-4">
-              <a href="https://github.com" className="text-muted-foreground transition-colors hover:text-foreground">
+              <a
+                href="https://github.com"
+                aria-label="GitHub"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
                 <Github className="h-5 w-5" />
               </a>
-              <a href="https://twitter.com" className="text-muted-foreground transition-colors hover:text-foreground">
+              <a
+                href="https://twitter.com"
+                aria-label="Twitter"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
                 <Twitter className="h-5 w-5" />
               </a>
-              <a href="https://linkedin.com" className="text-muted-foreground transition-colors hover:text-foreground">
+              <a
+                href="https://linkedin.com"
+                aria-label="LinkedIn"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground transition-colors hover:text-foreground"
+              >
                 <Linkedin className="h-5 w-5" />
               </a>
             </div>
@@ -77,12 +95,19 @@ export function LandingFooter() {
             <h4 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Stay Updated</h4>
             <p className="text-sm text-muted-foreground">Get the latest updates on RAGForge AI features.</p>
             <div className="mt-4 flex gap-2">
+              <label htmlFor="newsletter-email" className="sr-only">
+                Email address
+              </label>
               <input
+                id="newsletter-email"
                 type="email"
                 placeholder="your@email.com"
                 className="flex h-10 flex-1 rounded-lg border border-input bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary/50 focus:ring-2 focus:ring-ring/20"
               />
-              <button className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-lg gradient-primary text-white transition-transform hover:scale-105">
+              <button
+                aria-label="Subscribe"
+                className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-lg gradient-primary text-white transition-transform hover:scale-105"
+              >
                 <Zap className="h-4 w-4" />
               </button>
             </div>

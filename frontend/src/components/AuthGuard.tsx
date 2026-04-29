@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
@@ -12,7 +13,7 @@ import { useAppStore } from "@/store/useAppStore";
  * hydrated AND we know whether a token exists. This prevents the brief
  * double-spinner that occurred when both states rendered in sequence.
  */
-export function AuthGuard({ children }: { children: React.ReactNode }) {
+export function AuthGuard({ children }: { children: ReactNode }) {
   const token = useAppStore((s) => s.token);
   const router = useRouter();
   const pathname = usePathname();

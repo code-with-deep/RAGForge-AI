@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { useAppStore } from "@/store/useAppStore";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { fetchMe } from "@/lib/api";
 
 const sidebarNav = [
@@ -34,7 +35,7 @@ const sidebarNav = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings }
 ];
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
@@ -172,7 +173,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       <div className={cn("flex flex-1 flex-col transition-all duration-300", sidebarOpen ? "lg:pl-[260px]" : "lg:pl-[68px]")}>
         {/* Top bar */}
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-card/80 backdrop-blur-lg px-4 lg:px-6">
-          <button className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-muted lg:hidden" onClick={() => setMobileOpen(true)}>
+          <button aria-label="Open navigation menu" className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-muted lg:hidden" onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
           </button>
 
@@ -180,6 +181,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
           {/* Dark mode toggle (mobile) */}
           <button
+            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             onClick={toggleDarkMode}
             className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-muted lg:hidden"
           >

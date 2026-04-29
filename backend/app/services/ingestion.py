@@ -110,8 +110,9 @@ class DocumentIngestionService:
 
         document_id = str(uuid4())
         stored_path = self.settings.upload_dir / f"{document_id}_{filename}"
-        contents = await file.read()
-        stored_path.write_bytes(contents)
+        file.file.seek(0)
+        with stored_path.open("wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
         return self.ingest_path(stored_path, original_filename=filename, tags=tags, user_id=user_id)
 
     def ingest_sample_documents(self, user_id: str | None = None) -> list[UploadResponse]:
@@ -119,12 +120,18 @@ class DocumentIngestionService:
         responses: list[UploadResponse] = []
         for path in sorted(sample_dir.glob("*")):
             if path.suffix.lower() in SUPPORTED_EXTENSIONS:
-                existing = (
+                existing_query = (
                     self.db.query(DocumentRecord)
                     .filter(DocumentRecord.filename == path.name)
-                    .first()
                 )
-                if not existing:
+                # Scope dedup to the requesting user so each user gets their
+                # own copy of sample docs. Fall back to global dedup when
+                # user_id is None (anonymous / single-user mode).
+                if user_id is not None:
+                    existing_query = existing_query.filter(
+                        DocumentRecord.user_id == user_id
+                    )
+                if not existing_query.first():
                     responses.append(
                         self.ingest_path(path, original_filename=path.name, tags=["sample"], user_id=user_id)
                     )
