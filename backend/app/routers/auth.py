@@ -10,16 +10,16 @@ from app.auth.security import (
     get_current_user,
 )
 from app.models.database import User, get_db
-from app.models.schemas import LoginRequest, SignupRequest, TokenResponse, UserOut
+from app.models.schemas import LoginRequest, SignupRequest, TokenResponse, UserOut  # UserOut still used for /me
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/signup", response_model=UserOut)
-async def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> UserOut:
+@router.post("/signup", response_model=TokenResponse)
+async def signup(payload: SignupRequest, db: Session = Depends(get_db)) -> TokenResponse:
     user = create_user(db, payload.email, payload.password)
-    return UserOut(id=user.id, email=user.email, created_at=user.created_at)
+    return TokenResponse(access_token=create_access_token(user.id))
 
 
 @router.post("/login", response_model=TokenResponse)
