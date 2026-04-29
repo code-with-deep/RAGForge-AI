@@ -1,9 +1,14 @@
+import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+_INSECURE_JWT_KEY = "change-me-in-production"
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -51,10 +56,24 @@ class Settings(BaseSettings):
     default_keyword_weight: float = 0.3
     max_context_tokens: int = 4200
 
-    jwt_secret_key: str = "change-me-in-production"
+    jwt_secret_key: str = _INSECURE_JWT_KEY
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24
     auth_required: bool = False
+
+    @model_validator(mode="after")
+    def _validate_jwt_secret(self) -> "Settings":
+        if self.jwt_secret_key == _INSECURE_JWT_KEY:
+            if self.environment in ("production", "staging"):
+                raise ValueError(
+                    "JWT_SECRET_KEY must be set to a secure random value in production/staging. "
+                    "Set the JWT_SECRET_KEY environment variable (e.g. `openssl rand -hex 32`)."
+                )
+            logger.warning(
+                "⚠️  JWT_SECRET_KEY is using the insecure default placeholder. "
+                "Set JWT_SECRET_KEY in your .env file before deploying."
+            )
+        return self
 
     auto_ingest_sample_docs: bool = False
     eval_pass_threshold: float = 0.72

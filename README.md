@@ -161,6 +161,5 @@ advanced-rag-platform/
 │   └── package.json
 ├── sample_documents/        # Seed PDF/TXT files
 ├── eval_dataset/            # Golden Q&A evaluation sets
-├── Planning.md              # Detailed breakdown of architecture and flow
 └── README.md
 ```

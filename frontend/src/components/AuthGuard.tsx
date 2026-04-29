@@ -7,7 +7,10 @@ import { useAppStore } from "@/store/useAppStore";
 
 /**
  * Wraps dashboard pages. Redirects to /login if no token is found.
- * Shows a loading skeleton during hydration.
+ *
+ * Single loading gate: we show the spinner until the Zustand store has
+ * hydrated AND we know whether a token exists. This prevents the brief
+ * double-spinner that occurred when both states rendered in sequence.
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const token = useAppStore((s) => s.token);
@@ -25,23 +28,15 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [hydrated, token, router, pathname]);
 
-  if (!hydrated) {
+  // Single unified loading state — covers both pre-hydration and unauthenticated phases.
+  if (!hydrated || !token) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!token) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Redirecting to login...</p>
+          <p className="text-sm text-muted-foreground">
+            {!hydrated ? "Loading..." : "Redirecting to login..."}
+          </p>
         </div>
       </div>
     );

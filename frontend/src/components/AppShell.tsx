@@ -190,7 +190,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-3">
             <div className="hidden text-right sm:block">
               <p className="text-sm font-medium text-foreground">{user?.email ?? "User"}</p>
-              <p className="text-xs text-muted-foreground">Pro Plan</p>
+              {user?.email && (
+                <p className="text-xs text-muted-foreground">
+                  {user.email.split("@")[1]}
+                </p>
+              )}
             </div>
             <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
               <User className="h-4 w-4" />

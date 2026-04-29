@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { KeyRound, Loader2, Zap } from "lucide-react";
 import { login } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
@@ -22,6 +22,10 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cancel any pending redirect if the component unmounts before the timer fires
+  useEffect(() => () => { if (redirectTimer.current) clearTimeout(redirectTimer.current); }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,8 +36,8 @@ function LoginForm() {
       setToken(response.access_token);
       setShowSuccess(true);
       const redirect = searchParams.get("redirect") || "/dashboard";
-      // Redirect after toast finishes
-      setTimeout(() => router.push(redirect), TOAST_DURATION);
+      // Redirect after toast finishes — stored in ref so it can be cancelled on unmount
+      redirectTimer.current = setTimeout(() => router.push(redirect), TOAST_DURATION);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

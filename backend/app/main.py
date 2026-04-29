@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -10,7 +13,27 @@ from app.services.ingestion import DocumentIngestionService
 
 
 settings = get_settings()
-app = FastAPI(title=settings.app_name, version="1.0.0")
+
+
+def _startup_sync() -> None:
+    """Synchronous startup tasks — run via asyncio.to_thread to avoid blocking the event loop."""
+    init_db()
+    if settings.auto_ingest_sample_docs:
+        db = SessionLocal()
+        try:
+            DocumentIngestionService(db).ingest_sample_documents()
+        finally:
+            db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):  # noqa: ARG001
+    await asyncio.to_thread(_startup_sync)
+    yield  # application runs here
+    # (add shutdown cleanup here if needed in future)
+
+
+app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,15 +49,4 @@ app.include_router(query.router, prefix=settings.api_prefix)
 app.include_router(evaluation.router, prefix=settings.api_prefix)
 app.include_router(chunks.router, prefix=settings.api_prefix)
 app.include_router(system.router, prefix=settings.api_prefix)
-
-
-@app.on_event("startup")
-def startup() -> None:
-    init_db()
-    if settings.auto_ingest_sample_docs:
-        db = SessionLocal()
-        try:
-            DocumentIngestionService(db).ingest_sample_documents()
-        finally:
-            db.close()
 

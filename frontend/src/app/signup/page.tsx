@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, UserPlus, Zap } from "lucide-react";
 import { signup } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
@@ -21,6 +21,10 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cancel any pending redirect if the component unmounts before the timer fires
+  useEffect(() => () => { if (redirectTimer.current) clearTimeout(redirectTimer.current); }, []);
 
   const strength = password.length === 0 ? 0 : password.length < 8 ? 1 : password.length < 12 ? 2 : 3;
   const strengthColors = ["", "bg-destructive", "bg-accent", "bg-primary"];
@@ -35,8 +39,8 @@ export default function SignupPage() {
       // Auto-authenticate — no second login required
       setToken(response.access_token);
       setShowSuccess(true);
-      // Redirect to dashboard after the toast finishes
-      setTimeout(() => router.push("/dashboard"), TOAST_DURATION);
+      // Redirect to dashboard after the toast finishes — stored in ref so it can be cancelled on unmount
+      redirectTimer.current = setTimeout(() => router.push("/dashboard"), TOAST_DURATION);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
