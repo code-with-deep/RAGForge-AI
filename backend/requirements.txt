@@ -23,3 +23,5 @@ docx2txt>=0.8
 unstructured[docx,md]>=0.16.11
 tiktoken>=0.8.0
 orjson>=3.10.12
+httpx>=0.28.0
+pytest>=8.3.0

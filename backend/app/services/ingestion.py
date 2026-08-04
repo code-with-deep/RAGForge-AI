@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.config import PROJECT_ROOT, get_settings
 from app.models.database import ChunkRecord, DocumentRecord
 from app.models.schemas import ChunkOut, DocumentOut, UploadResponse
+from app.services.access import apply_document_mutation_scope, apply_document_visibility
 from app.services.chunking_strategies import build_all_chunk_strategies, enrich_loaded_documents
 from app.services.utils import from_json, metadata_for_chroma, parse_tags, to_json, utc_iso
 from app.services.vector_store import get_embeddings, get_vector_store
@@ -74,6 +75,8 @@ def _document_out(record: DocumentRecord) -> DocumentOut:
         total_pages=record.total_pages,
         tags=from_json(record.tags_json, []),
         chunk_counts=from_json(record.chunk_counts_json, {}),
+        user_id=record.user_id,
+        is_shared=record.user_id is None,
     )
 
 
@@ -116,25 +119,35 @@ class DocumentIngestionService:
         return self.ingest_path(stored_path, original_filename=filename, tags=tags, user_id=user_id)
 
     def ingest_sample_documents(self, user_id: str | None = None) -> list[UploadResponse]:
+        """Ingest built-in sample docs as shared corpus (user_id=None).
+
+        Samples are shared across all accounts so signup → query works without
+        per-user duplication. ``user_id`` is accepted for API compatibility but
+        ignored for ownership.
+        """
+        del user_id  # samples are always shared
         sample_dir = PROJECT_ROOT / "sample_documents"
         responses: list[UploadResponse] = []
         for path in sorted(sample_dir.glob("*")):
-            if path.suffix.lower() in SUPPORTED_EXTENSIONS:
-                existing_query = (
-                    self.db.query(DocumentRecord)
-                    .filter(DocumentRecord.filename == path.name)
+            if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+                continue
+            existing = (
+                self.db.query(DocumentRecord)
+                .filter(
+                    DocumentRecord.filename == path.name,
+                    DocumentRecord.user_id.is_(None),
                 )
-                # Scope dedup to the requesting user so each user gets their
-                # own copy of sample docs. Fall back to global dedup when
-                # user_id is None (anonymous / single-user mode).
-                if user_id is not None:
-                    existing_query = existing_query.filter(
-                        DocumentRecord.user_id == user_id
+                .first()
+            )
+            if existing is None:
+                responses.append(
+                    self.ingest_path(
+                        path,
+                        original_filename=path.name,
+                        tags=["sample", "shared"],
+                        user_id=None,
                     )
-                if not existing_query.first():
-                    responses.append(
-                        self.ingest_path(path, original_filename=path.name, tags=["sample"], user_id=user_id)
-                    )
+                )
         return responses
 
     def ingest_path(
@@ -254,14 +267,20 @@ class DocumentIngestionService:
 
     def list_documents(self, user_id: str | None = None) -> list[DocumentOut]:
         query = self.db.query(DocumentRecord).order_by(DocumentRecord.upload_date.desc())
-        if user_id:
-            query = query.filter(DocumentRecord.user_id == user_id)
+        query = apply_document_visibility(query, user_id)
         return [_document_out(record) for record in query.all()]
 
     def delete_document(self, document_id: str, user_id: str | None = None) -> None:
         query = self.db.query(DocumentRecord).filter(DocumentRecord.id == document_id)
-        if user_id:
-            query = query.filter(DocumentRecord.user_id == user_id)
+        # Authenticated users cannot delete shared samples; only their uploads.
+        if user_id is not None:
+            record = query.first()
+            if record is not None and record.user_id is None:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Shared sample documents cannot be deleted. Upload your own copy to replace them.",
+                )
+            query = apply_document_mutation_scope(query, user_id)
         record = query.first()
         if record is None:
             raise HTTPException(status_code=404, detail="Document not found")
@@ -291,8 +310,7 @@ class DocumentIngestionService:
             query = query.filter(ChunkRecord.document_id == document_id)
         if strategy:
             query = query.filter(ChunkRecord.strategy == strategy)
-        if user_id:
-            query = query.filter(DocumentRecord.user_id == user_id)
+        query = apply_document_visibility(query, user_id)
         query = query.order_by(ChunkRecord.source.asc(), ChunkRecord.strategy.asc()).limit(limit)
         return [_chunk_out(record) for record in query.all()]
 

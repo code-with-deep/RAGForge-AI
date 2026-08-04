@@ -1,25 +1,30 @@
-# Environments
+# Environments / secrets — keep *.example files tracked
 .env
-.env*.local
+.env.*
+!.env.example
+!**/.env.example
+
+# Python virtualenvs
 .venv/
+backend/.venv/
 env/
 venv/
 ENV/
 
-# Python
+# Python bytecode / packaging
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
+/build/
+/dist/
 develop-eggs/
-dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -32,6 +37,7 @@ MANIFEST
 # Testing & Coverage
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 .tox/
 .nox/
 .coverage
@@ -42,6 +48,7 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+backend/tests/_tmp/
 
 # Node.js / Frontend
 node_modules/
@@ -55,12 +62,32 @@ yarn-error.log*
 .pnp*
 .pnp.js
 
-# Storage & Databases
+# Storage & Databases (runtime data — never push)
 backend/storage/chroma/
 backend/storage/uploads/*
+!backend/storage/uploads/.gitkeep
 backend/storage/*.db
 backend/storage/*.db-*
 *.sqlite3
+*.db
+
+# Model / ML caches
+.cache/
+**/huggingface/
+*.pt
+*.bin
+*.onnx
+
+# Secrets & keys
+*.pem
+*.p12
+*.pfx
+*.key
+!*example*.key
+credentials.json
+service-account*.json
+secrets/
+.secrets/
 
 # Logs
 *.log
@@ -81,7 +108,7 @@ ehthumbs.db
 Thumbs.db
 desktop.ini
 
-# IDEs
+# IDEs / editors
 .vscode/
 .idea/
 *.swp
@@ -89,3 +116,7 @@ desktop.ini
 .project
 .pydevproject
 .settings/
+.cursor/
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat

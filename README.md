@@ -4,7 +4,7 @@ This repository contains the completed **Advanced RAG with LangChain**. It is a 
 
 ---
 
-## 🏗️ Architecture Diagram
+## Architecture Diagram
 
 The system is built on a dual-pipeline architecture: Ingestion and Querying.
 
@@ -43,123 +43,129 @@ graph TD
 
 ---
 
-## 🧠 Advanced Retrieval Strategies Explained
-
-This platform implements multiple enterprise-level retrieval paradigms. Users can dynamically switch between these strategies in the UI or compare them side-by-side.
-
-1. **Basic Vector Search:** Standard cosine similarity using dense embeddings. It understands conceptual meaning but often fails on exact keyword/ID lookups.
-2. **Hybrid Search (Semantic + BM25):** Runs Vector search and BM25 (keyword) search simultaneously. It merges the two result sets using **Reciprocal Rank Fusion (RRF)**. This guarantees the system finds both conceptual matches and exact string matches (e.g., specific error codes).
-3. **Hybrid + Re-Rank (Default):** Takes the top 20 results from the Hybrid search and passes them through a powerful **Cross-Encoder neural network**. The cross-encoder accurately re-scores and sorts the chunks, passing only the absolute best top 5 to the LLM.
-4. **Parent-Child Chunking:** Splits text into tiny 200-token chunks for highly precise vector searching, but links them to 1000-token "parent" chunks. The LLM receives the parent chunk to maintain broader context.
-5. **Multi-Query Expansion:** Uses the LLM to generate 3-5 alternative phrasings of the user's question before searching, drastically improving recall for poorly worded queries.
-6. **HyDE (Hypothetical Document Embeddings):** The LLM generates a "fake" hypothetical answer to the query. The system embeds this fake answer and searches the database for real chunks that closely resemble it in vector space.
-7. **Query Decomposition:** Automatically breaks complex, multi-part questions into individual sub-queries, runs retrieval for each, and synthesizes a final answer.
-
----
-
-## 📊 RAG Evaluation & Benchmarks
-
-The project includes an automated evaluation pipeline (`eval_dataset.json` containing 20 golden Q&A pairs) that uses an **LLM-as-a-judge** to score the system across four critical RAG metrics: Faithfulness, Answer Relevancy, Context Precision, and Context Recall.
-
-*Measured smoke benchmark on the included sample corpus (all strategies, offline fallback generation):*
-
-| Retrieval Strategy | Faithfulness | Answer Relevancy | Context Precision | Context Recall | Aggregate Score |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Parent-Child** | **1.0000** | **0.8969** | **1.0000** | **1.0000** | **0.9742** |
-| Basic Vector | 0.8000 | 0.8969 | 1.0000 | 1.0000 | 0.9242 |
-| Hybrid | 0.8000 | 0.8969 | 1.0000 | 1.0000 | 0.9242 |
-| Hybrid + Re-Rank | 0.8000 | 0.8969 | 1.0000 | 1.0000 | 0.9242 |
-| Multi-Query | 0.8000 | 0.8969 | 1.0000 | 1.0000 | 0.9242 |
-| HyDE | 0.8000 | 0.8969 | 1.0000 | 1.0000 | 0.9242 |
-| Decomposition | 0.8000 | 0.8969 | 1.0000 | 1.0000 | 0.9242 |
-
----
-
-## 📸 Screenshots
-
-### 1. Pipeline Visualizer & Trace
-![Pipeline Visualizer UI](./screenshots/pipeline_visualizer.png)
-*Shows step-by-step transparency from the original query, to transformation, to re-ranking scores, and finally LLM generation.*
-
-### 2. A/B Strategy Comparison
-![A/B Comparison UI](./screenshots/ab_comparison.png)
-*Side-by-side comparison of two retrieval strategies showing differing answers and retrieved chunks.*
-
-### 3. Evaluation Dashboard
-![Evaluation Dashboard](./screenshots/evaluation_dashboard.png)
-*Visualizing the performance of different strategies across the test dataset.*
-
----
-
-## 🚀 Setup & Installation
+## Setup & Installation
 
 ### Prerequisites
-- Python 3.11+
+- Python **3.11–3.12 recommended** (3.13/3.14 may work; production images use 3.12)
 - Node.js 18+
-- `uv` Python package manager
+- `uv` or `pip`
 
-### 1. Backend Configuration
-Navigate to the backend directory and install dependencies:
+### 1. Backend (development)
 ```bash
 cd backend
-uv sync
-```
-Create your environment variables. Duplicate `.env.example` to `.env` and add your Groq API key:
-```env
-GROQ_API_KEY=your_key_here
-OFFLINE_FALLBACK=true  # Set to false in production
-```
-Start the FastAPI server:
-```bash
-uv run uvicorn app.main:app --reload --port 8000
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-**Seed Test Documents:**
-To populate the database with the sample data required for the evaluation dataset to work, run:
+Copy env defaults and set secrets:
+```bash
+cp ../.env.example ../.env
+# Set GROQ_API_KEY and a strong JWT_SECRET_KEY
+```
+
+Start the API:
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+In **development**, shared sample documents are auto-seeded when none exist. You can also click **Samples** in the UI or call:
 ```bash
 curl -X POST http://localhost:8000/api/documents/ingest-samples
 ```
+Sample docs are **shared** (`user_id` null) so every signed-in account can query them.
 
-### 2. Frontend Configuration
-Open a new terminal and navigate to the frontend directory:
+### 2. Frontend (development)
 ```bash
 cd frontend
+cp .env.example .env.local
 npm install
 npm run dev
 ```
-Open your browser and navigate to **[http://localhost:3000](http://localhost:3000)**.
+Open **[http://localhost:3000](http://localhost:3000)**, sign up, then use the dashboard.
+
+### 3. Tests & lint
+```bash
+# Backend
+cd backend
+pytest -q
+
+# Frontend
+cd frontend
+npm run typecheck
+npm run lint
+```
+
+### 4. Production (Docker)
+Set production values in `.env`:
+```env
+ENVIRONMENT=production
+AUTH_REQUIRED=true
+OFFLINE_FALLBACK=false
+JWT_SECRET_KEY=<openssl rand -hex 32>
+CORS_ORIGINS=https://your-frontend.example
+GROQ_API_KEY=<your key>
+NEXT_PUBLIC_API_URL=https://your-api.example/api
+```
+
+Then:
+```bash
+docker compose up --build -d
+```
 
 ---
 
-## 🔌 Core API Surface
+## Core API Surface
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
+| `POST` | `/api/auth/signup` | Create account + JWT |
+| `POST` | `/api/auth/login` | Login |
 | `POST` | `/api/documents/upload` | Upload & ingest document across all chunk strategies |
-| `GET` | `/api/documents` | List all ingested documents and metadata |
-| `POST` | `/api/query/stream` | Stream LLM responses using LCEL |
-| `POST` | `/api/query/compare` | Run A/B test with two strategies |
-| `POST` | `/api/evaluate/batch` | Run full automated evaluation suite |
+| `GET` | `/api/documents` | List own + shared documents |
+| `POST` | `/api/documents/ingest-samples` | Seed shared sample corpus |
+| `POST` | `/api/query` | Run RAG query |
+| `POST` | `/api/query/stream` | Stream pipeline + answer (SSE) |
+| `POST` | `/api/query/compare` | A/B test with two strategies |
+| `POST` | `/api/evaluate/batch` | Automated evaluation suite |
+| `POST` | `/api/contact` | Persist contact form messages (optional SMTP) |
 | `GET` | `/api/health` | System health and LLM provider status |
 
-## 📁 Project Structure
+---
+
+## Production checklist
+
+- [ ] `ENVIRONMENT=production`
+- [ ] Strong `JWT_SECRET_KEY` (not the placeholder)
+- [ ] `AUTH_REQUIRED=true`
+- [ ] `OFFLINE_FALLBACK=false` with a real LLM API key
+- [ ] Explicit `CORS_ORIGINS` (no `*`)
+- [ ] `NEXT_PUBLIC_API_URL` points at the public API
+- [ ] Optional SMTP vars if contact form should email you
+
+---
+
+## Project Structure
 
 ```text
-advanced-rag-platform/
+RAGForge-AI/
 ├── backend/
 │   ├── app/
-│   │   ├── routers/         # FastAPI endpoints (documents, query, evaluation)
-│   │   ├── services/        # Core RAG logic (ingestion, retrieval, reranker, rag_chain)
-│   │   ├── models/          # Database & Pydantic schemas
-│   │   └── data/            # eval_dataset.json
+│   │   ├── routers/
+│   │   ├── services/
+│   │   ├── models/
+│   │   └── data/
+│   ├── tests/
+│   ├── Dockerfile
 │   ├── pyproject.toml
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── app/             # Next.js App Router pages (Dashboard, Compare, Evaluate)
-│   │   └── components/      # React components (QueryPanel, PipelineVisualizer, ChunkInspector)
+│   ├── Dockerfile
 │   └── package.json
-├── sample_documents/        # Seed PDF/TXT files
-├── eval_dataset/            # Golden Q&A evaluation sets
+├── sample_documents/
+├── eval_dataset/
+├── docker-compose.yml
 └── README.md
 ```

@@ -6,11 +6,11 @@ from typing import Iterable
 
 from rank_bm25 import BM25Okapi
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_
 
 from app.config import get_settings
 from app.models.database import ChunkRecord, DocumentRecord
 from app.models.schemas import ChunkScore, MetadataFilters
+from app.services.access import apply_document_visibility
 from app.services.ingestion import SEARCHABLE_STRATEGIES
 from app.services.utils import (
     from_json,
@@ -162,8 +162,7 @@ class RetrievalService:
         query = self.db.query(ChunkRecord).join(DocumentRecord)
 
         # --- DB-level filters (pushed into SQL) ---
-        if user_id:
-            query = query.filter(DocumentRecord.user_id == user_id)
+        query = apply_document_visibility(query, user_id)
         if filters.date_start:
             try:
                 dt_start = datetime.fromisoformat(filters.date_start)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Database, Loader2, Trash2, Upload } from "lucide-react";
 import { deleteDocument, documentChunks, ingestSamples, listDocuments, uploadDocument } from "@/lib/api";
 import type { ChunkOut, DocumentOut } from "@/lib/types";
@@ -21,13 +21,13 @@ export function DocumentList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setDocuments(await listDocuments());
-  }
+  }, [setDocuments]);
 
   useEffect(() => {
     refresh().catch(() => undefined);
-  }, []);
+  }, [refresh]);
 
   async function upload() {
     if (!file) return;
@@ -109,15 +109,26 @@ export function DocumentList() {
           <Badge tone="muted">{documents.length}</Badge>
         </PanelHeader>
         <div className="space-y-3">
-          {documents.map((document) => (
+          {documents.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+              No documents yet. Click <span className="font-medium text-foreground">Samples</span> to load the shared demo corpus, or upload your own files.
+            </div>
+          ) : null}
+          {documents.map((document) => {
+            const isSharedSample = Boolean(document.is_shared) || document.tags.includes("shared");
+            return (
             <div key={document.id} className="rounded-md border border-border bg-background p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <button className="text-left font-medium" onClick={() => inspect(document)}>
                   {document.filename}
                 </button>
-                <Button variant="ghost" size="icon" title="Delete document" onClick={() => remove(document)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                {isSharedSample ? (
+                  <Badge tone="muted">shared</Badge>
+                ) : (
+                  <Button variant="ghost" size="icon" title="Delete document" onClick={() => remove(document)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                )}
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Badge tone="muted">{document.file_type}</Badge>
@@ -129,7 +140,8 @@ export function DocumentList() {
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </Panel>
       <Panel className="lg:col-span-2">

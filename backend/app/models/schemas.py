@@ -118,6 +118,8 @@ class DocumentOut(BaseModel):
     total_pages: int
     tags: list[str]
     chunk_counts: dict[str, int]
+    user_id: str | None = None
+    is_shared: bool = False
 
 
 class UploadResponse(BaseModel):
@@ -235,4 +237,18 @@ class HealthResponse(BaseModel):
     vector_store: str
     database: str
     llm_provider: str
+
+
+class ContactRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=200)
+    email: EmailStr
+    subject: str = Field(default="", max_length=300)
+    message: str = Field(min_length=10, max_length=5000)
+
+
+class ContactResponse(BaseModel):
+    status: str = "ok"
+    id: str
+    delivered: bool = False
+    detail: str = "Message received"
 
