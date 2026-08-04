@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Github, Linkedin, Mail, MessageSquare, Send, Twitter } from "lucide-react";
+import { submitContact } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,10 +22,27 @@ const faqs = [
 
 export default function ContactPage() {
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState("We'll get back to you within 24 hours.");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSent(true);
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await submitContact({ name, email, subject, message });
+      setDetail(response.detail || "We'll get back to you within 24 hours.");
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -47,7 +65,6 @@ export default function ContactPage() {
           </motion.div>
 
           <div className="mt-16 grid gap-12 lg:grid-cols-[1fr_400px]">
-            {/* Form */}
             <motion.div initial="hidden" animate="show" variants={fade}>
               {sent ? (
                 <div className="flex flex-col items-center justify-center rounded-xl border border-primary/20 bg-card p-12 text-center">
@@ -55,37 +72,60 @@ export default function ContactPage() {
                     <MessageSquare className="h-8 w-8" />
                   </div>
                   <h3 className="mt-6 text-xl font-semibold">Message Sent!</h3>
-                  <p className="mt-2 text-muted-foreground">We&apos;ll get back to you within 24 hours.</p>
+                  <p className="mt-2 text-muted-foreground">{detail}</p>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-5 rounded-xl border border-border bg-card p-8">
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Name</Label>
-                      <Input placeholder="Your name" required />
+                      <Input
+                        placeholder="Your name"
+                        required
+                        minLength={2}
+                        value={name}
+                        onChange={(event) => setName(event.target.value)}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Email</Label>
-                      <Input type="email" placeholder="you@example.com" required />
+                      <Input
+                        type="email"
+                        placeholder="you@example.com"
+                        required
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label>Subject</Label>
-                    <Input placeholder="How can we help?" />
+                    <Input
+                      placeholder="How can we help?"
+                      value={subject}
+                      onChange={(event) => setSubject(event.target.value)}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Message</Label>
-                    <Textarea placeholder="Tell us more..." className="min-h-[140px]" required />
+                    <Textarea
+                      placeholder="Tell us more..."
+                      className="min-h-[140px]"
+                      required
+                      minLength={10}
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
+                    />
                   </div>
-                  <Button type="submit" variant="gradient" size="lg" className="w-full">
+                  {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                  <Button type="submit" variant="gradient" size="lg" className="w-full" disabled={loading}>
                     <Send className="h-4 w-4" />
-                    Send Message
+                    {loading ? "Sending..." : "Send Message"}
                   </Button>
                 </form>
               )}
             </motion.div>
 
-            {/* Contact info */}
             <motion.div
               initial="hidden"
               animate="show"
@@ -114,7 +154,6 @@ export default function ContactPage() {
                 </div>
               </div>
 
-              {/* FAQ */}
               <div className="rounded-xl border border-border bg-card p-6">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">FAQ</h3>
                 <div className="mt-4 space-y-4">

@@ -1,4 +1,5 @@
 import logging
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -7,6 +8,9 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 logger = logging.getLogger(__name__)
+
+# Quiet noisy HF cache warning on Windows (symlinks unavailable without Developer Mode).
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
 _INSECURE_JWT_KEY = "change-me-in-production"
 
@@ -61,26 +65,60 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 60 * 24
     auth_required: bool = False
 
+    auto_ingest_sample_docs: bool = False
+    eval_pass_threshold: float = 0.72
+
+    # Contact form delivery (optional SMTP). When unset, messages are stored in DB only.
+    contact_notify_email: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_use_tls: bool = True
+    smtp_from_email: str | None = None
+
     @model_validator(mode="after")
-    def _validate_jwt_secret(self) -> "Settings":
+    def _validate_security(self) -> "Settings":
+        is_prod = self.environment in ("production", "staging")
+
         if self.jwt_secret_key == _INSECURE_JWT_KEY:
-            if self.environment in ("production", "staging"):
+            if is_prod:
                 raise ValueError(
                     "JWT_SECRET_KEY must be set to a secure random value in production/staging. "
                     "Set the JWT_SECRET_KEY environment variable (e.g. `openssl rand -hex 32`)."
                 )
             logger.warning(
-                "⚠️  JWT_SECRET_KEY is using the insecure default placeholder. "
+                "JWT_SECRET_KEY is using the insecure default placeholder. "
                 "Set JWT_SECRET_KEY in your .env file before deploying."
             )
-        return self
 
-    auto_ingest_sample_docs: bool = False
-    eval_pass_threshold: float = 0.72
+        if is_prod and not self.auth_required:
+            logger.warning(
+                "AUTH_REQUIRED=false in %s. Set AUTH_REQUIRED=true for production deployments.",
+                self.environment,
+            )
+
+        if is_prod and self.offline_fallback and self.llm_provider != "offline":
+            logger.warning(
+                "OFFLINE_FALLBACK=true in %s. Disable it when a real LLM provider key is configured.",
+                self.environment,
+            )
+
+        if is_prod and ("*" in self.parsed_cors_origins or not self.parsed_cors_origins):
+            raise ValueError(
+                "CORS_ORIGINS must be an explicit comma-separated allow-list in production/staging."
+            )
+
+        return self
 
     @property
     def parsed_cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def should_auto_seed_samples(self) -> bool:
+        """Seed shared samples when explicitly enabled, or when the DB is empty in development."""
+        return self.auto_ingest_sample_docs or self.environment == "development"
 
 
 @lru_cache
@@ -89,4 +127,3 @@ def get_settings() -> Settings:
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
     settings.chroma_dir.mkdir(parents=True, exist_ok=True)
     return settings
-

@@ -139,6 +139,19 @@ export function evaluationResults() {
   return apiFetch("/evaluate/results");
 }
 
+/* ── Contact ──────────────────────────────── */
+export function submitContact(payload: {
+  name: string;
+  email: string;
+  subject?: string;
+  message: string;
+}) {
+  return apiFetch<{ status: string; id: string; delivered: boolean; detail: string }>("/contact", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
 /* ── System ───────────────────────────────── */
 export function stats() {
   return apiFetch<Record<string, unknown>>("/stats");

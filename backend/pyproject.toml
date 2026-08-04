@@ -2,7 +2,7 @@
 name = "ragforge-backend"
 version = "1.0.0"
 description = "Production-grade Advanced RAG backend with FastAPI, LangChain LCEL, Chroma, BM25, reranking, and evaluation."
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11,<3.15"
 dependencies = [
   "fastapi>=0.115.0",
   "uvicorn[standard]>=0.34.0",
@@ -28,7 +28,9 @@ dependencies = [
   "docx2txt>=0.8",
   "unstructured[docx,md]>=0.16.11",
   "tiktoken>=0.8.0",
-  "orjson>=3.10.12"
+  "orjson>=3.10.12",
+  "httpx>=0.28.0",
+  "pytest>=8.3.0"
 ]
 
 [tool.uv]

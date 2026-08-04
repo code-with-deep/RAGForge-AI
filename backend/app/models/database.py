@@ -112,6 +112,17 @@ class EvaluationResult(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
 
 
+class ContactMessage(Base):
+    __tablename__ = "contact_messages"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    subject: Mapped[str] = mapped_column(String(300), default="")
+    message: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+
+
 settings = get_settings()
 engine = create_engine(
     settings.database_url,

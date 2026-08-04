@@ -92,6 +92,8 @@ export type DocumentOut = {
   total_pages: number;
   tags: string[];
   chunk_counts: Record<string, number>;
+  user_id?: string | null;
+  is_shared?: boolean;
 };
 
 export type ChunkOut = {
