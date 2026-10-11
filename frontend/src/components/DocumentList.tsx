@@ -87,7 +87,7 @@ export function DocumentList() {
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
+    <div className="grid min-w-0 gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
       <Panel>
         <PanelHeader>
           <PanelTitle>Document Management</PanelTitle>
@@ -127,8 +127,8 @@ export function DocumentList() {
             const isSharedSample = Boolean(document.is_shared) || document.tags.includes("shared");
             return (
             <div key={document.id} className="rounded-md border border-border bg-background p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <button className="text-left font-medium" onClick={() => inspect(document)}>
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                <button className="min-w-0 break-words text-left font-medium" onClick={() => inspect(document)}>
                   {document.filename}
                 </button>
                 {isSharedSample ? (
@@ -153,7 +153,7 @@ export function DocumentList() {
           })}
         </div>
       </Panel>
-      <Panel className="lg:col-span-2">
+      <Panel className="xl:col-span-2">
         <PanelHeader>
           <PanelTitle>{selected ? selected.filename : "Chunks"}</PanelTitle>
           <Badge tone="muted">{chunks.length}</Badge>

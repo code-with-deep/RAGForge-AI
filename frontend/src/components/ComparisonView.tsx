@@ -71,7 +71,7 @@ export function ComparisonView() {
             Compare
           </Button>
         </PanelHeader>
-        <div className="grid gap-3 lg:grid-cols-[1fr_220px_220px]">
+        <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_220px_220px]">
           <Textarea
             value={query}
             onChange={(event) => {
@@ -97,13 +97,17 @@ export function ComparisonView() {
               <PanelTitle>Answers</PanelTitle>
               <Badge tone="accent">overlap {String(result.metrics.overlap_ratio ?? "0")}</Badge>
             </PanelHeader>
-            <ReactDiffViewer
-              oldValue={result.result_a.answer}
-              newValue={result.result_b.answer}
-              splitView
-              leftTitle={strategyA}
-              rightTitle={strategyB}
-            />
+            <div className="max-w-full overflow-x-auto">
+              <div className="min-w-[600px]">
+                <ReactDiffViewer
+                  oldValue={result.result_a.answer}
+                  newValue={result.result_b.answer}
+                  splitView
+                  leftTitle={strategyA}
+                  rightTitle={strategyB}
+                />
+              </div>
+            </div>
           </Panel>
           <div className="grid gap-4 lg:grid-cols-2">
             <ChunkInspector title={strategyA} chunks={result.result_a.selected_chunks} />

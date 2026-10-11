@@ -47,7 +47,7 @@ export function SuccessToast({ title, subtitle, duration = 2200 }: SuccessToastP
           flexDirection: "column",
           alignItems: "center",
           gap: "1rem",
-          padding: "2.5rem 3rem",
+          padding: "2rem 1.5rem",
           borderRadius: "1.25rem",
           background: "hsl(222 40% 8% / 0.95)",
           border: "1px solid hsl(217 33% 22% / 0.6)",
@@ -55,7 +55,8 @@ export function SuccessToast({ title, subtitle, duration = 2200 }: SuccessToastP
             "0 0 0 1px hsl(160 84% 39% / 0.2), 0 25px 60px hsl(222 47% 5% / 0.6), 0 0 40px hsl(160 84% 39% / 0.08)",
           transform: visible ? "scale(1) translateY(0)" : "scale(0.92) translateY(16px)",
           transition: "transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease",
-          minWidth: "22rem",
+          width: "calc(100vw - 2rem)",
+          maxWidth: "24rem",
           textAlign: "center",
         }}
       >

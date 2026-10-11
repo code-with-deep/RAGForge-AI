@@ -71,25 +71,26 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       {/* ── Sidebar (desktop) ── */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-card transition-all duration-300 ease-in-out",
-          sidebarOpen ? "w-[260px]" : "w-[68px]",
+          "fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border bg-sidebar transition-all duration-200 ease-out",
+          sidebarOpen ? "w-[248px]" : "w-[68px]",
           "hidden lg:flex"
         )}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center gap-2.5 border-b border-border px-4">
-          <span className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-lg gradient-primary text-white text-sm font-bold">
+        <div className="flex h-[68px] items-center gap-3 border-b border-border px-4">
+          <span className="grid h-8 w-8 flex-shrink-0 place-items-center rounded-md gradient-primary text-white text-[11px] font-bold tracking-tight">
             RF
           </span>
           {sidebarOpen && (
-            <span className="text-base font-bold text-foreground whitespace-nowrap">
-              RAGForge<span className="text-primary"> AI</span>
+              <span className="text-[15px] font-semibold tracking-tight text-foreground whitespace-nowrap">
+              RAGForge<span className="ml-1 font-normal text-muted-foreground">workspace</span>
             </span>
           )}
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 overflow-y-auto px-3 py-6">
+          {sidebarOpen && <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[.13em] text-muted-foreground/75">Workspace</p>}
           <div className="space-y-1">
             {sidebarNav.map((item) => {
               const Icon = item.icon;
@@ -102,10 +103,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-all duration-200",
+                    "relative flex h-10 items-center gap-3 rounded-md px-3 text-[13px] font-medium transition-colors duration-150",
                     active
-                      ? "bg-primary/10 text-primary glow-sm"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      ? "bg-primary/[.09] text-primary before:absolute before:inset-y-2 before:left-0 before:w-[2px] before:rounded-full before:bg-primary"
+                      : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                   )}
                   title={!sidebarOpen ? item.label : undefined}
                 >
@@ -118,7 +119,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-border p-3 space-y-2">
+        <div className="border-t border-border p-3 space-y-1">
           <button
             onClick={toggleDarkMode}
             className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
@@ -141,10 +142,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[280px] border-r border-border bg-card animate-slide-down">
+          <aside className="absolute inset-y-0 left-0 w-[min(280px,calc(100vw-1.5rem))] border-r border-border bg-card animate-slide-down">
             <div className="flex h-16 items-center justify-between border-b border-border px-4">
-              <span className="text-base font-bold text-foreground">
-                RAGForge<span className="text-primary"> AI</span>
+              <span className="text-[15px] font-semibold tracking-tight text-foreground">
+                RAGForge<span className="ml-1 font-normal text-muted-foreground">workspace</span>
               </span>
               <button onClick={() => setMobileOpen(false)}>
                 <X className="h-5 w-5 text-muted-foreground" />
@@ -178,9 +179,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       )}
 
       {/* ── Main content ── */}
-      <div className={cn("flex flex-1 flex-col transition-all duration-300", sidebarOpen ? "lg:pl-[260px]" : "lg:pl-[68px]")}>
+      <div className={cn("flex flex-1 flex-col transition-all duration-200", sidebarOpen ? "lg:pl-[248px]" : "lg:pl-[68px]")}>
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-card/80 backdrop-blur-lg px-4 lg:px-6">
+        <header className="sticky top-0 z-30 flex h-[60px] items-center gap-4 border-b border-border bg-background/95 px-4 lg:px-8">
           <button aria-label="Open navigation menu" className="grid h-9 w-9 place-items-center rounded-lg text-muted-foreground hover:bg-muted lg:hidden" onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
           </button>
@@ -206,7 +207,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
                 </p>
               )}
             </div>
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-primary/10 text-primary">
+            <div className="grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground">
               <User className="h-4 w-4" />
             </div>
             <Button variant="ghost" size="icon" onClick={logout} title="Logout">
@@ -216,8 +217,8 @@ export function DashboardShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-4 lg:p-6">
-          <div className="mx-auto max-w-7xl">{children}</div>
+        <main className="min-w-0 flex-1 px-3 py-6 sm:px-5 lg:px-9 lg:py-9">
+          <div className="mx-auto max-w-[1360px]">{children}</div>
         </main>
       </div>
     </div>

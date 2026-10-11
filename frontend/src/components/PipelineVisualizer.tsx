@@ -42,7 +42,7 @@ export function PipelineVisualizer({ result }: { result: QueryResponse | null })
         <PanelTitle>Pipeline</PanelTitle>
         <Badge tone="muted">{result.strategy}</Badge>
       </PanelHeader>
-      <div className="grid gap-3 lg:grid-cols-5">
+      <div className="grid gap-3 xl:grid-cols-5">
         {result.pipeline.map((step, index) => (
           <details key={step.name} className="rounded-md border border-border bg-background p-3" open={index === 0}>
             <summary className="cursor-pointer">

@@ -26,7 +26,7 @@ export function MetadataFilters({
   return (
     <details className="rounded-md border border-border bg-muted/40 p-3">
       <summary className="cursor-pointer text-sm font-semibold">Metadata filters</summary>
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
+      <div className="mt-3 grid gap-3 lg:grid-cols-3">
         <div className="space-y-1">
           <Label>Source</Label>
           <Select

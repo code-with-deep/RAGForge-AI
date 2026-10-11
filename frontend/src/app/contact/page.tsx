@@ -64,7 +64,7 @@ export default function ContactPage() {
             </p>
           </motion.div>
 
-          <div className="mt-16 grid gap-12 lg:grid-cols-[1fr_400px]">
+          <div className="mt-12 grid gap-10 xl:grid-cols-[minmax(0,1fr)_400px] lg:mt-16 lg:gap-12">
             <motion.div initial="hidden" animate="show" variants={fade}>
               {sent ? (
                 <div className="flex flex-col items-center justify-center rounded-xl border border-primary/20 bg-card p-12 text-center">

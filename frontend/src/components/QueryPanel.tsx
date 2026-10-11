@@ -76,13 +76,16 @@ export function QueryPanel() {
   return (
     <Panel>
       <PanelHeader>
-        <PanelTitle>Query Interface</PanelTitle>
+        <div>
+          <PanelTitle>New question</PanelTitle>
+          <p className="mt-1 text-xs text-muted-foreground">Choose how your documents should be searched.</p>
+        </div>
         <Button onClick={submit} disabled={loading || query.trim().length < 2}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Ask
         </Button>
       </PanelHeader>
-      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_270px]">
         <div className="space-y-3">
           <Textarea
             value={query}
@@ -96,7 +99,7 @@ export function QueryPanel() {
           <MetadataFilters value={filters} documents={documents} onChange={setFilters} />
           {error ? <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p> : null}
         </div>
-        <div className="space-y-3 rounded-md border border-border bg-muted/40 p-3">
+        <div className="space-y-4 rounded-lg border border-border bg-background/70 p-4">
           <div className="space-y-1">
             <Label>Strategy</Label>
             <StrategySelector value={strategy} onChange={setStrategy} strategies={strategies} />

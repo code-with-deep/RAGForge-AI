@@ -5,7 +5,7 @@ export function Panel({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
   return (
     <section
       className={cn(
-        "rounded-xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md",
+        "min-w-0 rounded-lg border border-border bg-card p-4 shadow-[0_1px_2px_rgba(24,32,25,0.035)] sm:p-5",
         className
       )}
       {...props}
@@ -14,7 +14,7 @@ export function Panel({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 }
 
 export function PanelHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("mb-4 flex items-center justify-between gap-3", className)} {...props} />;
+  return <div className={cn("mb-4 flex flex-wrap items-center justify-between gap-3", className)} {...props} />;
 }
 
 export function PanelTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {

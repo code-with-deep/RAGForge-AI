@@ -110,7 +110,7 @@ export default function AboutPage() {
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
-            className="mt-12 overflow-hidden rounded-xl border border-border bg-card p-8 font-mono text-sm leading-relaxed text-muted-foreground"
+            className="mt-12 overflow-hidden rounded-xl border border-border bg-card p-4 font-mono text-xs leading-relaxed text-muted-foreground sm:p-8 sm:text-sm"
           >
             <pre className="whitespace-pre-wrap">
 {`User Query
