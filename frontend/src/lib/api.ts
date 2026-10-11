@@ -25,22 +25,67 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
     headers.set("Content-Type", "application/json");
   }
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: "no-store" });
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: "no-store" });
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    if (
+      errorMsg.includes("Failed to fetch") ||
+      errorMsg.includes("NetworkError") ||
+      errorMsg.includes("Load failed") ||
+      errorMsg.includes("ECONNREFUSED")
+    ) {
+      throw new Error(
+        "Unable to connect to the RAGForge server. Please make sure the backend is running and reachable."
+      );
+    }
+    throw new Error(errorMsg || "Network request failed. Please check your connection.");
+  }
+
   if (!response.ok) {
-    let message = response.statusText;
+    let message = response.statusText || `Request failed (${response.status})`;
     try {
       const body = await response.json();
       if (typeof body?.detail === "string") {
         message = body.detail;
       } else if (Array.isArray(body?.detail)) {
-        // FastAPI validation error array → join messages
-        message = body.detail.map((e: { msg?: string }) => e.msg ?? "").join(", ");
+        // Format FastAPI validation errors into human-readable field sentences
+        const formatted = body.detail.map((e: { msg?: string; loc?: (string | number)[] }) => {
+          const field = e.loc && e.loc.length > 0 ? e.loc[e.loc.length - 1] : null;
+          const fieldLabel =
+            field && typeof field === "string" && field !== "body"
+              ? `${field.charAt(0).toUpperCase() + field.slice(1).replace(/_/g, " ")}: `
+              : "";
+          let rawMsg = e.msg ?? "Invalid input";
+          if (rawMsg.startsWith("Value error, ")) {
+            rawMsg = rawMsg.replace("Value error, ", "");
+          }
+          return `${fieldLabel}${rawMsg}`;
+        });
+        message = formatted.filter(Boolean).join(". ");
+      } else if (body?.message && typeof body.message === "string") {
+        message = body.message;
       } else if (typeof body?.detail !== "undefined") {
         message = JSON.stringify(body.detail);
       }
     } catch {
-      message = (await response.text().catch(() => "")) || message;
+      const text = await response.text().catch(() => "");
+      if (text) message = text;
     }
+
+    // Fallbacks for generic or empty error messages
+    if (response.status === 401 && (!message || message === "Unauthorized")) {
+      message = "Invalid email or password, or your session has expired.";
+    } else if (response.status === 403 && (!message || message === "Forbidden")) {
+      message = "You do not have permission to perform this action.";
+    } else if (response.status === 404 && (!message || message === "Not Found")) {
+      message = "The requested resource was not found.";
+    } else if (response.status === 500 && (!message || message === "Internal Server Error")) {
+      message = "A server error occurred. Please try again shortly.";
+    }
+
     throw new Error(message);
   }
   return response.json() as Promise<T>;

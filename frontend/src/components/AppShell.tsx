@@ -43,6 +43,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
   const setToken = useAppStore((s) => s.setToken);
   const setUser = useAppStore((s) => s.setUser);
+  const setDocuments = useAppStore((s) => s.setDocuments);
+  const setStrategies = useAppStore((s) => s.setStrategies);
+  const setLatestQuery = useAppStore((s) => s.setLatestQuery);
+  const setEvaluation = useAppStore((s) => s.setEvaluation);
   const user = useAppStore((s) => s.user);
   const token = useAppStore((s) => s.token);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -56,6 +60,10 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   function logout() {
     setToken(null);
     setUser(null);
+    setDocuments([]);
+    setStrategies([]);
+    setLatestQuery(null);
+    setEvaluation(null);
   }
 
   return (

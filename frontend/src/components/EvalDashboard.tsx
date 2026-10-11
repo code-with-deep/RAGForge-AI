@@ -64,7 +64,7 @@ export function EvalDashboard() {
             </Button>
           </div>
         </PanelHeader>
-        {error ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+        {error ? <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p> : null}
       </Panel>
       {result ? (
         <>

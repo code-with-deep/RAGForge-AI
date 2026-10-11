@@ -97,16 +97,20 @@ async def stats(db: Session = Depends(get_db)) -> dict:
 @router.get("/health", response_model=HealthResponse)
 async def health(db: Session = Depends(get_db)) -> HealthResponse:
     settings = get_settings()
-    db.query(DocumentRecord).count()
+    db_status = "ready"
+    try:
+        db.query(DocumentRecord).count()
+    except Exception as exc:
+        db_status = f"degraded: {exc}"
     vector_status = "ready"
     try:
         get_vector_store()._collection.count()
     except Exception as exc:
         vector_status = f"degraded: {exc}"
     return HealthResponse(
-        status="ok",
+        status="ok" if db_status == "ready" and vector_status == "ready" else "degraded",
         app=settings.app_name,
         vector_store=vector_status,
-        database="ready",
+        database=db_status,
         llm_provider=llm_status(),
     )

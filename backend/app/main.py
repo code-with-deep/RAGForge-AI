@@ -4,8 +4,10 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.models.database import DocumentRecord, SessionLocal, init_db
@@ -15,6 +17,18 @@ from app.services.ingestion import DocumentIngestionService
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+def _format_validation_error(err: dict) -> str:
+    loc = err.get("loc", ())
+    field = str(loc[-1]) if loc and loc[-1] != "body" else ""
+    field_name = field.replace("_", " ").capitalize() if field else "Input"
+    msg = err.get("msg", "Invalid value")
+    if msg.startswith("Value error, "):
+        msg = msg[len("Value error, ") :]
+    if err.get("type") == "missing":
+        return f"{field_name} is required."
+    return f"{field_name}: {msg}."
 
 
 def _startup_sync() -> None:
@@ -57,6 +71,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:  # noqa: ARG001
+    errors = [_format_validation_error(err) for err in exc.errors()]
+    readable_detail = " ".join(errors) if errors else "Invalid request parameters."
+    return JSONResponse(
+        status_code=422,
+        content={"detail": readable_detail, "errors": exc.errors()},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception("Unhandled server error processing request %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An unexpected server error occurred. Please try again shortly or contact support."},
+    )
+
 
 app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(documents.router, prefix=settings.api_prefix)

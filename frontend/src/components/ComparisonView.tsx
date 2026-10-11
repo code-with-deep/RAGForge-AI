@@ -66,17 +66,29 @@ export function ComparisonView() {
       <Panel>
         <PanelHeader>
           <PanelTitle>A/B Comparison</PanelTitle>
-          <Button onClick={submit} disabled={loading}>
+          <Button onClick={submit} disabled={loading || query.trim().length < 2}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GitCompare className="h-4 w-4" />}
             Compare
           </Button>
         </PanelHeader>
         <div className="grid gap-3 lg:grid-cols-[1fr_220px_220px]">
-          <Textarea value={query} onChange={(event) => setQuery(event.target.value)} />
+          <Textarea
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              if (error) setError(null);
+            }}
+            placeholder="Enter a question to compare retrieval across two strategies..."
+          />
           <StrategySelector value={strategyA} onChange={setStrategyA} strategies={strategies} />
           <StrategySelector value={strategyB} onChange={setStrategyB} strategies={strategies} />
         </div>
-        {error ? <p className="mt-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+        {strategyA === strategyB ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Tip: Select two different strategies to see how their retrieval pipelines differ.
+          </p>
+        ) : null}
+        {error ? <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p> : null}
       </Panel>
       {result ? (
         <>

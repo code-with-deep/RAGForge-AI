@@ -112,6 +112,9 @@ def _get_query_record(db: Session, query_id: str, user_id: str | None) -> QueryR
         query = query.filter(QueryRecord.user_id == user_id)
     record = query.first()
     if record is None:
-        raise HTTPException(status_code=404, detail="Query not found")
+        raise HTTPException(
+            status_code=404,
+            detail="The requested query record was not found or you do not have permission to access it.",
+        )
     return record
 

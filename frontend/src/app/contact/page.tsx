@@ -15,7 +15,7 @@ const fade = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transiti
 
 const faqs = [
   { q: "Is RAGForge AI free to use?", a: "Yes, the core platform is free. Upload your documents, query with any strategy, and evaluate results at no cost." },
-  { q: "What file types are supported?", a: "PDF, TXT, DOCX, and Markdown files. We handle text extraction, metadata enrichment, and multi-strategy chunking automatically." },
+  { q: "What file types are supported?", a: "PDF (.pdf), Markdown (.md), and plain text (.txt) files. We handle text extraction, metadata enrichment, and multi-strategy chunking automatically." },
   { q: "Which LLM providers work?", a: "Groq (default), OpenAI, and Google Gemini. You can also run fully offline with the fallback generator for testing." },
   { q: "How is evaluation calculated?", a: "We use four RAGAS-inspired metrics: faithfulness, answer relevancy, context precision, and context recall. Each strategy is scored and ranked on a leaderboard." }
 ];
@@ -117,7 +117,11 @@ export default function ContactPage() {
                       onChange={(event) => setMessage(event.target.value)}
                     />
                   </div>
-                  {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                  {error ? (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                      {error}
+                    </div>
+                  ) : null}
                   <Button type="submit" variant="gradient" size="lg" className="w-full" disabled={loading}>
                     <Send className="h-4 w-4" />
                     {loading ? "Sending..." : "Send Message"}

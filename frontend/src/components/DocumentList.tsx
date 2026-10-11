@@ -59,7 +59,16 @@ export function DocumentList() {
 
   async function inspect(document: DocumentOut) {
     setSelected(document);
-    setChunks(await documentChunks(document.id));
+    setError(null);
+    try {
+      setChunks(await documentChunks(document.id));
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to load chunks for this document. Please try again."
+      );
+    }
   }
 
   async function remove(document: DocumentOut) {
@@ -100,7 +109,7 @@ export function DocumentList() {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
             Upload
           </Button>
-          {error ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+          {error ? <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p> : null}
         </div>
       </Panel>
       <Panel>

@@ -84,9 +84,17 @@ export function QueryPanel() {
       </PanelHeader>
       <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
         <div className="space-y-3">
-          <Textarea value={query} onChange={(event) => setQuery(event.target.value)} className="min-h-28" />
+          <Textarea
+            value={query}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              if (error) setError(null);
+            }}
+            placeholder="Ask a question about your uploaded documents..."
+            className="min-h-28"
+          />
           <MetadataFilters value={filters} documents={documents} onChange={setFilters} />
-          {error ? <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+          {error ? <p className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p> : null}
         </div>
         <div className="space-y-3 rounded-md border border-border bg-muted/40 p-3">
           <div className="space-y-1">

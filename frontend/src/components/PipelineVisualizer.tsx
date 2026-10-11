@@ -3,16 +3,19 @@
 import { Code2, Timer } from "lucide-react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import type { PipelineStep, QueryResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
 import { formatMs } from "@/lib/utils";
+import { useAppStore } from "@/store/useAppStore";
 
 function StepDetails({ step }: { step: PipelineStep }) {
+  const darkMode = useAppStore((s) => s.darkMode);
   return (
     <SyntaxHighlighter
       language="json"
-      style={oneLight}
+      style={darkMode ? oneDark : oneLight}
       customStyle={{ margin: 0, borderRadius: 6, fontSize: 12 }}
       wrapLongLines
     >
@@ -22,6 +25,7 @@ function StepDetails({ step }: { step: PipelineStep }) {
 }
 
 export function PipelineVisualizer({ result }: { result: QueryResponse | null }) {
+  const darkMode = useAppStore((s) => s.darkMode);
   if (!result) {
     return (
       <Panel>
@@ -65,7 +69,7 @@ export function PipelineVisualizer({ result }: { result: QueryResponse | null })
         <div className="mt-3">
           <SyntaxHighlighter
             language="markdown"
-            style={oneLight}
+            style={darkMode ? oneDark : oneLight}
             customStyle={{ margin: 0, borderRadius: 6, fontSize: 12 }}
             wrapLongLines
           >

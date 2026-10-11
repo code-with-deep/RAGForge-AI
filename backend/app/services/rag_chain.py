@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from uuid import uuid4
 
+from fastapi import HTTPException
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from sqlalchemy.orm import Session
@@ -33,7 +34,13 @@ class RAGChainService:
         self.retrieval = RetrievalService(db)
         self.transforms = QueryTransformService()
         self.reranker = CrossEncoderReranker()
-        self.llm = get_chat_model()
+        try:
+            self.llm = get_chat_model()
+        except RuntimeError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="No LLM provider is configured. Please set GROQ_API_KEY in your .env file or enable OFFLINE_FALLBACK=true.",
+            ) from exc
         self.prompt = ChatPromptTemplate.from_messages(
             [
                 (
@@ -103,7 +110,31 @@ class RAGChainService:
         with tracer.step("llm_generation") as details:
             prompt_value = self.prompt.invoke({"context": context, "question": request.query})
             final_prompt = prompt_value.to_string()
-            answer = await self.chain.ainvoke({"context": context, "question": request.query})
+            try:
+                answer = await self.chain.ainvoke({"context": context, "question": request.query})
+            except HTTPException:
+                raise
+            except Exception as exc:
+                err_str = str(exc)
+                if any(k in err_str.lower() for k in ("invalid api key", "authentication", "unauthorized", "invalid_api_key")):
+                    raise HTTPException(
+                        status_code=502,
+                        detail="LLM authentication failed. Please verify that your GROQ_API_KEY in .env is valid.",
+                    ) from exc
+                if "rate_limit" in err_str.lower() or "429" in err_str:
+                    raise HTTPException(
+                        status_code=429,
+                        detail="LLM rate limit reached. Please wait a moment before trying your query again.",
+                    ) from exc
+                if "timeout" in err_str.lower() or "timed out" in err_str.lower():
+                    raise HTTPException(
+                        status_code=504,
+                        detail="The LLM service timed out while generating an answer. Please try again.",
+                    ) from exc
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Unable to generate answer from AI model: {err_str}",
+                ) from exc
             details["prompt_preview"] = snippet(final_prompt, 900)
             details["answer_preview"] = snippet(answer, 500)
 

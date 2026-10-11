@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Iterable
 
 from rank_bm25 import BM25Okapi
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.config import get_settings

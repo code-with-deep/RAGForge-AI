@@ -33,7 +33,10 @@ def _file_type(path: Path) -> str:
 def _load_documents(path: Path) -> list[Document]:
     suffix = path.suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{suffix or 'unknown'}'. Supported formats are PDF (.pdf), Markdown (.md), and plain text (.txt).",
+        )
 
     if suffix == ".pdf":
         from langchain_community.document_loaders import PyPDFLoader
@@ -109,14 +112,23 @@ class DocumentIngestionService:
         filename = _safe_filename(file.filename or "document")
         suffix = Path(filename).suffix.lower()
         if suffix not in SUPPORTED_EXTENSIONS:
-            raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file type '{suffix or 'unknown'}'. Please upload a PDF (.pdf), Markdown (.md), or plain text (.txt) file.",
+            )
 
         document_id = str(uuid4())
         stored_path = self.settings.upload_dir / f"{document_id}_{filename}"
         file.file.seek(0)
         with stored_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        return self.ingest_path(stored_path, original_filename=filename, tags=tags, user_id=user_id)
+        return self.ingest_path(
+            stored_path,
+            original_filename=filename,
+            tags=tags,
+            user_id=user_id,
+            document_id=document_id,
+        )
 
     def ingest_sample_documents(self, user_id: str | None = None) -> list[UploadResponse]:
         """Ingest built-in sample docs as shared corpus (user_id=None).
@@ -157,20 +169,24 @@ class DocumentIngestionService:
         original_filename: str | None = None,
         tags: str | list[str] | None = None,
         user_id: str | None = None,
+        document_id: str | None = None,
     ) -> UploadResponse:
         if not path.exists():
-            raise HTTPException(status_code=404, detail="Document path not found")
+            raise HTTPException(status_code=404, detail="The specified document file could not be found on the server.")
 
         filename = original_filename or path.name
         tag_list = parse_tags(tags)
-        document_id = str(uuid4())
+        document_id = document_id or str(uuid4())
         upload_date = utc_iso()
         file_size = path.stat().st_size
         file_type = _file_type(path)
 
         loaded = _load_documents(path)
         if not loaded:
-            raise HTTPException(status_code=400, detail="No text could be extracted from document")
+            raise HTTPException(
+                status_code=400,
+                detail="Could not extract any text from this document. Please verify the file is not empty or corrupted (for scanned PDFs, OCR text is required).",
+            )
         enriched = enrich_loaded_documents(
             loaded,
             filename=filename,
@@ -283,7 +299,10 @@ class DocumentIngestionService:
             query = apply_document_mutation_scope(query, user_id)
         record = query.first()
         if record is None:
-            raise HTTPException(status_code=404, detail="Document not found")
+            raise HTTPException(
+                status_code=404,
+                detail="The requested document could not be found or you do not have permission to delete it.",
+            )
 
         vector_ids = [chunk.vector_id for chunk in record.chunks]
         if vector_ids:

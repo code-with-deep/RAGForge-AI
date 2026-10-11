@@ -52,7 +52,6 @@ export const useAppStore = create<AppState>()(
     {
       name: "ragforge-store",
       partialize: (state) => ({
-        token: state.token,
         user: state.user,
         latestQuery: state.latestQuery,
         evaluation: state.evaluation,

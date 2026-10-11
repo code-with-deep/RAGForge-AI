@@ -5,6 +5,7 @@ from pathlib import Path
 from statistics import mean
 from uuid import uuid4
 
+from fastapi import HTTPException
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from sqlalchemy.orm import Session
@@ -90,7 +91,17 @@ class EvaluationService:
         *,
         user_id: str | None = None,
     ) -> BatchEvaluationResponse:
+        if not request.strategies:
+            raise HTTPException(
+                status_code=400,
+                detail="Please select at least one retrieval strategy to evaluate.",
+            )
         dataset = self.load_dataset()
+        if not dataset:
+            raise HTTPException(
+                status_code=400,
+                detail="The evaluation dataset is empty or could not be loaded from eval_dataset/eval_dataset.json.",
+            )
         if request.limit:
             dataset = dataset[: request.limit]
         results: list[EvaluationResponse] = []
