@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import shutil
 from pathlib import Path
 from uuid import uuid4
@@ -31,6 +32,18 @@ def _file_type(path: Path) -> str:
 
 
 def _load_documents(path: Path) -> list[Document]:
+    try:
+        return _load_documents_unchecked(path)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not read '{path.name.split('_', 1)[-1]}'. The file may be corrupted or password-protected.",
+        ) from exc
+
+
+def _load_documents_unchecked(path: Path) -> list[Document]:
     suffix = path.suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
         raise HTTPException(
@@ -58,14 +71,12 @@ def _load_documents(path: Path) -> list[Document]:
 
             return TextLoader(str(path), autodetect_encoding=True).load()
 
-    try:
-        from langchain_community.document_loaders import UnstructuredWordDocumentLoader
+    # Docx2txt is pure Python. UnstructuredWordDocumentLoader pulls in python-magic, which
+    # hard-crashes the whole interpreter (native access violation) when libmagic is
+    # missing — notably on Windows — and a crash can't be caught by try/except.
+    from langchain_community.document_loaders import Docx2txtLoader
 
-        return UnstructuredWordDocumentLoader(str(path)).load()
-    except Exception:
-        from langchain_community.document_loaders import Docx2txtLoader
-
-        return Docx2txtLoader(str(path)).load()
+    return Docx2txtLoader(str(path)).load()
 
 
 def _document_out(record: DocumentRecord) -> DocumentOut:
@@ -122,13 +133,20 @@ class DocumentIngestionService:
         file.file.seek(0)
         with stored_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        return self.ingest_path(
-            stored_path,
-            original_filename=filename,
-            tags=tags,
-            user_id=user_id,
-            document_id=document_id,
-        )
+        try:
+            # Parsing + embedding is CPU-bound; keep it off the event loop.
+            return await asyncio.to_thread(
+                self.ingest_path,
+                stored_path,
+                original_filename=filename,
+                tags=tags,
+                user_id=user_id,
+                document_id=document_id,
+            )
+        except BaseException:
+            self.db.rollback()
+            stored_path.unlink(missing_ok=True)
+            raise
 
     def ingest_sample_documents(self, user_id: str | None = None) -> list[UploadResponse]:
         """Ingest built-in sample docs as shared corpus (user_id=None).
@@ -182,7 +200,7 @@ class DocumentIngestionService:
         file_type = _file_type(path)
 
         loaded = _load_documents(path)
-        if not loaded:
+        if not any(doc.page_content.strip() for doc in loaded):
             raise HTTPException(
                 status_code=400,
                 detail="Could not extract any text from this document. Please verify the file is not empty or corrupted (for scanned PDFs, OCR text is required).",
@@ -296,7 +314,7 @@ class DocumentIngestionService:
                     status_code=403,
                     detail="Shared sample documents cannot be deleted. Upload your own copy to replace them.",
                 )
-            query = apply_document_mutation_scope(query, user_id)
+        query = apply_document_mutation_scope(query, user_id)
         record = query.first()
         if record is None:
             raise HTTPException(
@@ -324,6 +342,12 @@ class DocumentIngestionService:
         user_id: str | None = None,
         limit: int = 200,
     ) -> list[ChunkOut]:
+        if document_id:
+            visible = apply_document_visibility(
+                self.db.query(DocumentRecord.id).filter(DocumentRecord.id == document_id), user_id
+            ).first()
+            if visible is None:
+                raise HTTPException(status_code=404, detail="The requested document was not found.")
         query = self.db.query(ChunkRecord).join(DocumentRecord)
         if document_id:
             query = query.filter(ChunkRecord.document_id == document_id)

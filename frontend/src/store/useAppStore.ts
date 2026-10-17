@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import type { BatchEvaluationResponse, DocumentOut, QueryResponse, StrategyInfo, UserOut } from "@/lib/types";
 
 type AppState = {
@@ -22,6 +22,31 @@ type AppState = {
   toggleSidebar: () => void;
   toggleDarkMode: () => void;
 };
+
+// localStorage can be full, blocked or absent (private mode, SSR); persistence is best-effort.
+const safeStorage = createJSONStorage(() => ({
+  getItem: (name: string) => {
+    try {
+      return window.localStorage.getItem(name);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (name: string, value: string) => {
+    try {
+      window.localStorage.setItem(name, value);
+    } catch {
+      /* quota exceeded or unavailable — skip */
+    }
+  },
+  removeItem: (name: string) => {
+    try {
+      window.localStorage.removeItem(name);
+    } catch {
+      /* ignore */
+    }
+  }
+}));
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -51,10 +76,13 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: "ragforge-store",
+      storage: safeStorage,
       partialize: (state) => ({
         user: state.user,
-        latestQuery: state.latestQuery,
-        evaluation: state.evaluation,
+        // Drop the bulky candidate list; the selected chunks are what the UI shows.
+        latestQuery: state.latestQuery ? { ...state.latestQuery, retrieved_chunks: [] } : null,
+        // Keep the leaderboard but not every per-question run.
+        evaluation: state.evaluation ? { ...state.evaluation, results: state.evaluation.results.slice(0, 40) } : null,
         sidebarOpen: state.sidebarOpen,
         darkMode: state.darkMode
       })

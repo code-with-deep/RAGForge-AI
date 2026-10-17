@@ -11,21 +11,22 @@ from app.models.database import DocumentRecord
 def apply_document_visibility(query: Query, user_id: str | None) -> Query:
     """Restrict documents to the caller's own rows plus shared (user_id IS NULL) samples.
 
-    Anonymous callers (user_id is None) see the full corpus — used when
-    AUTH_REQUIRED=false for local demos / API exploration.
+    Anonymous callers (user_id is None, only possible when AUTH_REQUIRED=false) see
+    just the shared corpus — never another account's private uploads.
     """
     if user_id is None:
-        return query
+        return query.filter(DocumentRecord.user_id.is_(None))
     return query.filter(
         or_(DocumentRecord.user_id == user_id, DocumentRecord.user_id.is_(None))
     )
 
 
 def apply_document_mutation_scope(query: Query, user_id: str | None) -> Query:
-    """Scope destructive ops: owners may mutate their docs; anonymous may mutate anything.
+    """Scope destructive ops to the caller's own documents.
 
-    Shared sample documents (user_id IS NULL) cannot be deleted by authenticated users.
+    Anonymous callers may only mutate shared (user_id IS NULL) documents; authenticated
+    users cannot delete shared samples.
     """
     if user_id is None:
-        return query
+        return query.filter(DocumentRecord.user_id.is_(None))
     return query.filter(DocumentRecord.user_id == user_id)

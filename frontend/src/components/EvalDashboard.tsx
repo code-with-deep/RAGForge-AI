@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BarChart3, Loader2 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { evaluateBatch } from "@/lib/api";
+import { getEvaluationJob, startEvaluationJob } from "@/lib/api";
 import type { BatchEvaluationResponse, RetrievalStrategy } from "@/lib/types";
 import { useAppStore } from "@/store/useAppStore";
 import { Button } from "@/components/ui/button";
@@ -29,18 +29,41 @@ export function EvalDashboard() {
   const [limit, setLimit] = useState(5);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const cancelled = useRef(false);
 
+  useEffect(() => {
+    cancelled.current = false;
+    return () => {
+      cancelled.current = true;
+    };
+  }, []);
+
+  // The benchmark runs as a background job on the server; poll it so no single
+  // HTTP request has to stay open for minutes.
   async function run() {
     setLoading(true);
     setError(null);
+    setProgress(null);
     try {
-      const response = await evaluateBatch(allStrategies, limit);
-      setResult(response);
-      setEvaluation(response);
+      const { job_id } = await startEvaluationJob(allStrategies, limit);
+      for (;;) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        if (cancelled.current) return;
+        const job = await getEvaluationJob(job_id);
+        setProgress({ done: job.completed, total: job.total });
+        if (job.status === "failed") throw new Error(job.error ?? "Evaluation failed");
+        if (job.status === "completed" && job.result) {
+          setResult(job.result);
+          setEvaluation(job.result);
+          break;
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Evaluation failed");
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   }
 
@@ -60,7 +83,7 @@ export function EvalDashboard() {
             </Select>
             <Button onClick={run} disabled={loading}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BarChart3 className="h-4 w-4" />}
-              Run
+              {loading && progress && progress.total > 0 ? `${progress.done}/${progress.total}` : "Run"}
             </Button>
           </div>
         </PanelHeader>

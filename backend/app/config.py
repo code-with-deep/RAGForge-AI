@@ -40,13 +40,17 @@ class Settings(BaseSettings):
     chroma_dir: Path = STORAGE_DIR / "chroma"
     chroma_collection: str = "ragforge_chunks"
 
-    llm_provider: Literal["groq", "openai", "gemini", "offline"] = "groq"
+    # Primary provider, plus an automatic fallback that is used when the primary errors
+    # (bad/expired key, quota, outage). Providers without an API key are skipped.
+    llm_provider: Literal["groq", "openai", "gemini", "offline"] = "gemini"
+    llm_fallback_provider: Literal["groq", "openai", "gemini", "none"] = "groq"
     groq_api_key: str | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-20b"
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
     google_api_key: str | None = None
-    gemini_model: str = "gemini-1.5-flash"
+    gemini_model: str = "gemini-flash-latest"
+    llm_timeout_seconds: float = 45.0
     offline_fallback: bool = True
 
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"

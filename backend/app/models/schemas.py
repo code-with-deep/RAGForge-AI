@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class RetrievalStrategy(str, Enum):
@@ -64,6 +64,8 @@ class ChunkScore(BaseModel):
 
 
 class QueryRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     query: str = Field(min_length=2)
     strategy: RetrievalStrategy = RetrievalStrategy.hybrid_rerank
     filters: MetadataFilters = Field(default_factory=MetadataFilters)
@@ -91,6 +93,8 @@ class QueryResponse(BaseModel):
 
 
 class CompareRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True)
+
     query: str = Field(min_length=2)
     strategy_a: RetrievalStrategy = RetrievalStrategy.hybrid
     strategy_b: RetrievalStrategy = RetrievalStrategy.hybrid_rerank
@@ -151,7 +155,9 @@ class StrategyInfo(BaseModel):
 
 
 class EvaluationItem(BaseModel):
-    question: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    question: str = Field(min_length=2)
     reference_answer: str
     expected_context: list[str] = Field(default_factory=list)
     strategy: RetrievalStrategy = RetrievalStrategy.hybrid_rerank

@@ -6,7 +6,7 @@ import re
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from app.services.llm import get_chat_model
+from app.services.llm import get_chat_model, llm_status
 from app.services.utils import unique_preserve_order
 
 
@@ -23,6 +23,8 @@ class QueryTransformService:
     def __init__(self) -> None:
         self.llm = get_chat_model()
         self.parser = StrOutputParser()
+        # The offline stub just echoes the prompt back, which would pollute retrieval queries.
+        self.offline = llm_status() == "offline-fallback"
 
     async def multi_query(self, query: str, count: int = 4) -> list[str]:
         prompt = ChatPromptTemplate.from_messages(
@@ -39,6 +41,8 @@ class QueryTransformService:
         )
         chain = prompt | self.llm | self.parser
         try:
+            if self.offline:
+                raise RuntimeError("offline")
             output = await chain.ainvoke({"query": query, "count": count})
             variants = _clean_lines(output)
         except Exception:
@@ -63,6 +67,8 @@ class QueryTransformService:
         )
         chain = prompt | self.llm | self.parser
         try:
+            if self.offline:
+                raise RuntimeError("offline")
             output = await chain.ainvoke({"query": query, "count": count})
             parsed = json.loads(_extract_json_array(output))
             variants = [str(item).strip() for item in parsed if str(item).strip()]
@@ -82,6 +88,8 @@ class QueryTransformService:
         )
         chain = prompt | self.llm | self.parser
         try:
+            if self.offline:
+                raise RuntimeError("offline")
             output = await chain.ainvoke({"query": query})
             line = _clean_lines(output)
             if line:
@@ -102,6 +110,8 @@ class QueryTransformService:
         )
         chain = prompt | self.llm | self.parser
         try:
+            if self.offline:
+                raise RuntimeError("offline")
             output = await chain.ainvoke({"query": query})
             if output.strip():
                 return output.strip()

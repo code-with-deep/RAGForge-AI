@@ -117,7 +117,7 @@ export function QueryPanel() {
           </div>
           <div className="space-y-1">
             <Label>Final chunks</Label>
-            <Input type="number" min={1} max={20} value={topKFinal} onChange={(event) => setTopKFinal(Number(event.target.value))} />
+            <Input type="number" min={1} max={20} value={topKFinal} onChange={(event) => setTopKFinal(Math.min(20, Math.max(1, Math.round(Number(event.target.value)) || 1)))} />
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={enableStepBack} onChange={(event) => setEnableStepBack(event.target.checked)} />

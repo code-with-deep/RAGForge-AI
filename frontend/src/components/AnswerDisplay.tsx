@@ -1,6 +1,7 @@
 "use client";
 
 import { Bot, Clock, Hash } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import type { QueryResponse } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Panel, PanelHeader, PanelTitle } from "@/components/ui/panel";
@@ -35,7 +36,10 @@ export function AnswerDisplay({ result }: { result: QueryResponse | null }) {
           </Badge>
         </div>
       </PanelHeader>
-      <div className="prose prose-sm max-w-none whitespace-pre-wrap leading-7">{result.answer}</div>
+      <div className="space-y-3 text-sm leading-7 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[12px] [&_li]:ml-1 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_strong]:font-semibold [&_table]:w-full [&_td]:border [&_td]:border-border [&_td]:p-2 [&_th]:border [&_th]:border-border [&_th]:p-2 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
+        {/* react-markdown escapes raw HTML by default, so model output can't inject markup */}
+        <ReactMarkdown>{result.answer}</ReactMarkdown>
+      </div>
       <div className="metric-grid mt-4">
         <div className="rounded-md border border-border bg-muted/50 p-3">
           <div className="text-xs text-muted-foreground">Input tokens</div>

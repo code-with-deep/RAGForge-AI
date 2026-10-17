@@ -1,6 +1,7 @@
 import type {
   BatchEvaluationResponse,
   ChunkOut,
+  ChunkScore,
   CompareResponse,
   DocumentOut,
   QueryHistoryItem,
@@ -10,6 +11,7 @@ import type {
   StrategyInfo,
   UserOut
 } from "@/lib/types";
+import { useAppStore } from "@/store/useAppStore";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
@@ -45,6 +47,11 @@ async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
+    // A rejected token means the session expired: sign out so AuthGuard sends the user to /login.
+    if (response.status === 401 && token && !path.startsWith("/auth/login") && !path.startsWith("/auth/signup")) {
+      useAppStore.getState().setToken(null);
+      useAppStore.getState().setUser(null);
+    }
     let message = response.statusText || `Request failed (${response.status})`;
     try {
       const body = await response.json();
@@ -165,7 +172,9 @@ export function getPipeline(id: string) {
 }
 
 export function getQueryChunks(id: string) {
-  return apiFetch(`/query/${id}/chunks`);
+  return apiFetch<{ query_id: string; retrieved_chunks: ChunkScore[]; selected_chunks: ChunkScore[] }>(
+    `/query/${id}/chunks`
+  );
 }
 
 export function queryHistory(limit: number = 50) {
@@ -178,6 +187,26 @@ export function evaluateBatch(strategies: RetrievalStrategy[], limit?: number) {
     method: "POST",
     body: JSON.stringify({ strategies, limit })
   });
+}
+
+export type EvaluationJobStatus = {
+  job_id: string;
+  status: "running" | "completed" | "failed";
+  completed: number;
+  total: number;
+  error: string | null;
+  result: BatchEvaluationResponse | null;
+};
+
+export function startEvaluationJob(strategies: RetrievalStrategy[], limit?: number) {
+  return apiFetch<{ job_id: string; status: string }>("/evaluate/jobs", {
+    method: "POST",
+    body: JSON.stringify({ strategies, limit })
+  });
+}
+
+export function getEvaluationJob(jobId: string) {
+  return apiFetch<EvaluationJobStatus>(`/evaluate/jobs/${jobId}`);
 }
 
 export function evaluationResults() {

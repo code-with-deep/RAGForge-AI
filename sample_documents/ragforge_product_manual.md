@@ -2,7 +2,7 @@
 
 ## Document Ingestion
 
-RAGForge accepts PDF files through PyPDFLoader, text files through TextLoader, DOCX files through UnstructuredWordDocumentLoader, and Markdown files through UnstructuredMarkdownLoader or a text fallback. Every loaded page or document is enriched with source, page_number, file_type, upload_date, tags, file size, total pages, and detected section headers.
+RAGForge accepts PDF files through PyPDFLoader, text files through TextLoader, DOCX files through Docx2txtLoader, and Markdown files through UnstructuredMarkdownLoader or a text fallback. Every loaded page or document is enriched with source, page_number, file_type, upload_date, tags, file size, total pages, and detected section headers.
 
 ## Chunking Strategies
 

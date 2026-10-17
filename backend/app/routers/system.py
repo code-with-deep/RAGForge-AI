@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from collections import defaultdict
-
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.auth.security import get_user_or_raise_if_required
 from app.config import get_settings
-from app.models.database import ChunkRecord, DocumentRecord, EvaluationResult, QueryRecord, get_db
+from app.models.database import ChunkRecord, DocumentRecord, EvaluationResult, QueryRecord, User, get_db
+from app.services.access import apply_document_visibility
 from app.models.schemas import HealthResponse, StrategyInfo, RetrievalStrategy
 from app.services.llm import llm_status
 from app.services.vector_store import get_vector_store
@@ -72,24 +72,38 @@ async def strategies() -> list[StrategyInfo]:
 
 
 @router.get("/stats")
-async def stats(db: Session = Depends(get_db)) -> dict:
-    chunk_counts = defaultdict(int)
-    for strategy, count in db.query(ChunkRecord.strategy, func.count(ChunkRecord.id)).group_by(ChunkRecord.strategy):
-        chunk_counts[strategy] = count
-    eval_counts = defaultdict(int)
-    for strategy, count in (
-        db.query(EvaluationResult.strategy, func.count(EvaluationResult.id)).group_by(EvaluationResult.strategy)
-    ):
-        eval_counts[strategy] = count
-    avg_latency = db.query(func.avg(QueryRecord.latency_ms)).scalar() or 0
+async def stats(
+    db: Session = Depends(get_db),
+    user: User | None = Depends(get_user_or_raise_if_required),
+) -> dict:
+    user_id = user.id if user else None
+    visible_docs = apply_document_visibility(db.query(DocumentRecord), user_id)
+    chunk_query = apply_document_visibility(
+        db.query(ChunkRecord.strategy, func.count(ChunkRecord.id)).join(DocumentRecord), user_id
+    ).group_by(ChunkRecord.strategy)
+    chunk_counts = {strategy: count for strategy, count in chunk_query}
+
+    queries = db.query(QueryRecord).filter(
+        QueryRecord.user_id == user_id if user_id else QueryRecord.user_id.is_(None)
+    )
+    evals = db.query(EvaluationResult).filter(
+        EvaluationResult.user_id == user_id if user_id else EvaluationResult.user_id.is_(None)
+    )
+    eval_counts = {
+        strategy: count
+        for strategy, count in evals.with_entities(
+            EvaluationResult.strategy, func.count(EvaluationResult.id)
+        ).group_by(EvaluationResult.strategy)
+    }
+    avg_latency = queries.with_entities(func.avg(QueryRecord.latency_ms)).scalar() or 0
     return {
-        "documents": db.query(DocumentRecord).count(),
-        "chunks": db.query(ChunkRecord).count(),
-        "chunks_by_strategy": dict(chunk_counts),
-        "queries": db.query(QueryRecord).count(),
+        "documents": visible_docs.count(),
+        "chunks": sum(chunk_counts.values()),
+        "chunks_by_strategy": chunk_counts,
+        "queries": queries.count(),
         "average_latency_ms": round(float(avg_latency), 2),
-        "evaluations": db.query(EvaluationResult).count(),
-        "evaluations_by_strategy": dict(eval_counts),
+        "evaluations": evals.count(),
+        "evaluations_by_strategy": eval_counts,
         "llm": llm_status(),
     }
 

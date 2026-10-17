@@ -15,7 +15,7 @@ export function DocumentList() {
   const documents = useAppStore((state) => state.documents);
   const setDocuments = useAppStore((state) => state.setDocuments);
   const [file, setFile] = useState<File | null>(null);
-  const [tags, setTags] = useState("sample");
+  const [tags, setTags] = useState("");
   const [chunks, setChunks] = useState<ChunkOut[]>([]);
   const [selected, setSelected] = useState<DocumentOut | null>(null);
   const [loading, setLoading] = useState(false);
@@ -124,7 +124,7 @@ export function DocumentList() {
             </div>
           ) : null}
           {documents.map((document) => {
-            const isSharedSample = Boolean(document.is_shared) || document.tags.includes("shared");
+            const isSharedSample = Boolean(document.is_shared);
             return (
             <div key={document.id} className="rounded-md border border-border bg-background p-3">
               <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">

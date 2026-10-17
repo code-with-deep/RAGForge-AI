@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { health } from "@/lib/api";
 import { useAppStore } from "@/store/useAppStore";
 import { Moon, Sun, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +12,13 @@ export default function SettingsPage() {
   const user = useAppStore((s) => s.user);
   const darkMode = useAppStore((s) => s.darkMode);
   const toggleDarkMode = useAppStore((s) => s.toggleDarkMode);
+  const [backend, setBackend] = useState<"checking" | "up" | "down">("checking");
+
+  useEffect(() => {
+    health()
+      .then(() => setBackend("up"))
+      .catch(() => setBackend("down"));
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -42,7 +51,6 @@ export default function SettingsPage() {
                 {user?.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}
               </div>
             </div>
-            <Badge tone="default">Pro Plan</Badge>
           </div>
         </div>
       </Panel>
@@ -75,7 +83,9 @@ export default function SettingsPage() {
               <div className="text-sm font-medium text-foreground">Backend URL</div>
               <div className="mt-0.5 break-all font-mono text-xs text-muted-foreground">{process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api"}</div>
             </div>
-            <Badge tone="good">Connected</Badge>
+            <Badge tone={backend === "up" ? "good" : backend === "down" ? "bad" : "muted"}>
+              {backend === "up" ? "Connected" : backend === "down" ? "Unreachable" : "Checking…"}
+            </Badge>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-4">
             <div>

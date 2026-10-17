@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
@@ -40,27 +41,56 @@ async def stream_query(
     db: Session = Depends(get_db),
     user: User | None = Depends(get_user_or_raise_if_required),
 ) -> EventSourceResponse:
+    """SSE: one ``pipeline`` event per step as it finishes, then ``answer`` and ``done``."""
+
     async def events():
         yield {"event": "status", "data": json.dumps({"step": "started"})}
-        response = await RAGChainService(db).run_query(payload, user_id=user.id if user else None)
-        for step in response.pipeline:
-            yield {"event": "pipeline", "data": step.model_dump_json()}
-        yield {"event": "answer", "data": response.model_dump_json()}
-        yield {"event": "done", "data": json.dumps({"query_id": response.query_id})}
+        queue: asyncio.Queue = asyncio.Queue()
+        try:
+            service = RAGChainService(db)
+        except HTTPException as exc:
+            yield {"event": "error", "data": json.dumps({"status": exc.status_code, "detail": exc.detail})}
+            return
+        task = asyncio.create_task(
+            service.run_query(payload, user_id=user.id if user else None, on_step=queue.put_nowait)
+        )
+        try:
+            while True:
+                getter = asyncio.ensure_future(queue.get())
+                await asyncio.wait({getter, task}, return_when=asyncio.FIRST_COMPLETED)
+                if getter.done():
+                    yield {"event": "pipeline", "data": getter.result().model_dump_json()}
+                    continue
+                getter.cancel()
+                break
+            while not queue.empty():
+                yield {"event": "pipeline", "data": queue.get_nowait().model_dump_json()}
+            try:
+                response = task.result()
+            except HTTPException as exc:
+                yield {"event": "error", "data": json.dumps({"status": exc.status_code, "detail": exc.detail})}
+                return
+            except Exception:
+                yield {"event": "error", "data": json.dumps({"status": 500, "detail": "An unexpected server error occurred."})}
+                return
+            yield {"event": "answer", "data": response.model_dump_json()}
+            yield {"event": "done", "data": json.dumps({"query_id": response.query_id})}
+        finally:
+            if not task.done():
+                task.cancel()
 
     return EventSourceResponse(events())
 
 
 @router.get("/history")
 async def query_history(
-    limit: int = 50,
+    limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
     user: User | None = Depends(get_user_or_raise_if_required),
 ) -> list[dict]:
     query = db.query(QueryRecord).order_by(QueryRecord.created_at.desc())
-    if user:
-        query = query.filter(QueryRecord.user_id == user.id)
-    records = query.limit(min(limit, 200)).all()
+    query = query.filter(_owner_clause(user.id if user else None))
+    records = query.limit(limit).all()
     return [
         {
             "id": r.id,
@@ -106,10 +136,13 @@ async def get_query_chunks(
     }
 
 
+def _owner_clause(user_id: str | None):
+    # Anonymous callers (AUTH_REQUIRED=false) only ever see anonymous records.
+    return QueryRecord.user_id == user_id if user_id else QueryRecord.user_id.is_(None)
+
+
 def _get_query_record(db: Session, query_id: str, user_id: str | None) -> QueryRecord:
-    query = db.query(QueryRecord).filter(QueryRecord.id == query_id)
-    if user_id:
-        query = query.filter(QueryRecord.user_id == user_id)
+    query = db.query(QueryRecord).filter(QueryRecord.id == query_id).filter(_owner_clause(user_id))
     record = query.first()
     if record is None:
         raise HTTPException(

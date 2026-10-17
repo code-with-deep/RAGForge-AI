@@ -36,7 +36,7 @@ graph TD
     subgraph Generation Pipeline
         N --> O[LCEL Prompt Assembly]
         E --> O
-        O --> P[LLM Generation Groq/Llama-3]
+        O --> P[LLM Generation Gemini, Groq fallback]
         P --> Q[Streamed Answer + Trace Data]
     end
 ```
@@ -62,7 +62,8 @@ pip install -r requirements.txt
 Copy env defaults and set secrets:
 ```bash
 cp ../.env.example ../.env
-# Set GROQ_API_KEY and a strong JWT_SECRET_KEY
+# Set GOOGLE_API_KEY (primary), GROQ_API_KEY (fallback) and a strong JWT_SECRET_KEY
+# LLM_PROVIDER=gemini, LLM_FALLBACK_PROVIDER=groq — if Gemini errors, Groq answers instead
 ```
 
 Start the API:
@@ -105,7 +106,8 @@ AUTH_REQUIRED=true
 OFFLINE_FALLBACK=false
 JWT_SECRET_KEY=<openssl rand -hex 32>
 CORS_ORIGINS=https://your-frontend.example
-GROQ_API_KEY=<your key>
+GOOGLE_API_KEY=<your Gemini key>
+GROQ_API_KEY=<your Groq key, used as fallback>
 NEXT_PUBLIC_API_URL=https://your-api.example/api
 ```
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Iterable
 
 from rank_bm25 import BM25Okapi
@@ -46,7 +46,9 @@ class RetrievalService:
     ) -> tuple[list[ChunkScore], RetrievalDebug]:
         candidates = self._candidate_chunks(filters, user_id=user_id)
         eligible = {record.id for record in candidates}
-        vector_results = self._vector_search(query, filters, top_k=max(top_k * 4, 40), eligible=eligible)
+        vector_results = self._vector_search(
+            query, filters, top_k=max(top_k * 4, 40), eligible=eligible, candidates=candidates
+        )
         ranked = vector_results[:top_k]
         for index, result in enumerate(ranked, start=1):
             result.rank = index
@@ -70,7 +72,9 @@ class RetrievalService:
         if not candidates:
             return [], RetrievalDebug(0, 0, 0, 0, ["No chunks matched the metadata filters."])
 
-        vector_results = self._vector_search(query, filters, top_k=max(top_k * 4, 80), eligible=eligible)
+        vector_results = self._vector_search(
+            query, filters, top_k=max(top_k * 4, 80), eligible=eligible, candidates=candidates
+        )
         bm25_results = self._bm25_search(query, candidates, top_k=max(top_k * 4, 80))
         fused = self._rrf_fuse(
             vector_results,
@@ -177,12 +181,20 @@ class RetrievalService:
                 dt_end = datetime.fromisoformat(filters.date_end)
                 if dt_end.tzinfo is None:
                     dt_end = dt_end.replace(tzinfo=timezone.utc)
+                if len(filters.date_end.strip()) <= 10:
+                    # A bare date (<input type="date">) means "through the end of that day".
+                    dt_end += timedelta(days=1) - timedelta(microseconds=1)
                 query = query.filter(DocumentRecord.upload_date <= dt_end)
             except ValueError:
                 pass  # malformed date — skip filter rather than crash
 
         # strategy / source / page filters — all indexed columns
-        strategies = filters.chunk_strategies or sorted(SEARCHABLE_STRATEGIES)
+        # Internal strategies (e.g. parent_child_parent) are never directly searchable.
+        strategies = (
+            [s for s in filters.chunk_strategies if s in SEARCHABLE_STRATEGIES]
+            if filters.chunk_strategies
+            else sorted(SEARCHABLE_STRATEGIES)
+        )
         query = query.filter(ChunkRecord.strategy.in_(strategies))
 
         if filters.sources:
@@ -201,7 +213,7 @@ class RetrievalService:
         # sections — case-insensitive substring match
         if filters.sections:
             section_clauses = [
-                ChunkRecord.section.ilike(f"%{s}%") for s in filters.sections
+                ChunkRecord.section.ilike(f"%{_escape_like(s)}%", escape="\\") for s in filters.sections
             ]
             section_filter = or_(*section_clauses)
             query = query.filter(section_filter)
@@ -209,7 +221,8 @@ class RetrievalService:
         # tags — stored as JSON text, use LIKE per tag
         if filters.tags:
             tag_clauses = [
-                ChunkRecord.tags_json.ilike(f"%{tag.lower()}%")
+                # tags_json is a JSON array of strings: match the whole quoted tag, not substrings.
+                ChunkRecord.tags_json.ilike(f'%"{_escape_like(tag.strip().lower())}"%', escape="\\")
                 for tag in filters.tags
             ]
             if filters.logic.value == "or" and len(tag_clauses) > 1:
@@ -226,10 +239,17 @@ class RetrievalService:
         *,
         top_k: int,
         eligible: set[str],
+        candidates: list[ChunkRecord] | None = None,
     ) -> list[ChunkScore]:
         if not eligible:
             return []
         chroma_filter = self._simple_chroma_filter(filters)
+        # Restrict the ANN search to documents this caller may see. Without this, other
+        # users' chunks fill the top-k and are discarded below, starving recall.
+        if candidates:
+            doc_ids = sorted({record.document_id for record in candidates})
+            doc_clause = {"document_id": doc_ids[0]} if len(doc_ids) == 1 else {"document_id": {"$in": doc_ids}}
+            chroma_filter = doc_clause if chroma_filter is None else {"$and": [chroma_filter, doc_clause]}
         try:
             docs_with_scores = get_vector_store().similarity_search_with_score(
                 query,
@@ -398,6 +418,10 @@ class RetrievalService:
         if len(clauses) == 1:
             return clauses[0]
         return {"$and": clauses}
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def max_score(left: float | None, right: float | None) -> float | None:

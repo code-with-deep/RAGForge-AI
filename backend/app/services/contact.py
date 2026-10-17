@@ -24,9 +24,9 @@ class ContactService:
         message_id = str(uuid4())
         record = ContactMessage(
             id=message_id,
-            name=payload.name.strip(),
+            name=" ".join(payload.name.split()),
             email=str(payload.email).lower(),
-            subject=(payload.subject or "").strip() or "RAGForge contact",
+            subject=" ".join((payload.subject or "").split()) or "RAGForge contact",
             message=payload.message.strip(),
         )
         self.db.add(record)

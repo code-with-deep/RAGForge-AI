@@ -56,10 +56,24 @@ def _startup_sync() -> None:
         db.close()
 
 
+def _warm_models() -> None:
+    """Load the re-ranker once at startup so the first query doesn't pay ~10s for it."""
+    if not settings.enable_cross_encoder:
+        return
+    try:
+        from app.services.reranker import _get_cross_encoder
+
+        _get_cross_encoder(settings.reranker_model)
+    except Exception:
+        logger.warning("Re-ranker warm-up failed; queries will use the lexical fallback", exc_info=True)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     await asyncio.to_thread(_startup_sync)
+    warmup = asyncio.create_task(asyncio.to_thread(_warm_models))  # don't block startup
     yield
+    warmup.cancel()
 
 
 app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)

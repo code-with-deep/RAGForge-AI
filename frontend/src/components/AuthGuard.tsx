@@ -15,13 +15,24 @@ import { useAppStore } from "@/store/useAppStore";
  */
 export function AuthGuard({ children }: { children: ReactNode }) {
   const token = useAppStore((s) => s.token);
+  const setToken = useAppStore((s) => s.setToken);
   const router = useRouter();
   const pathname = usePathname();
   const [hydrated, setHydrated] = useState(false);
 
+  // The token lives in localStorage (not in the persisted store slice), so restore it
+  // before the redirect check runs — otherwise every page refresh logs the user out.
   useEffect(() => {
+    if (!useAppStore.getState().token) {
+      try {
+        const stored = window.localStorage.getItem("ragforge-token");
+        if (stored) setToken(stored);
+      } catch {
+        /* storage unavailable — treated as signed out */
+      }
+    }
     setHydrated(true);
-  }, []);
+  }, [setToken]);
 
   useEffect(() => {
     if (hydrated && !token) {

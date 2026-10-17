@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import time
+from typing import Callable
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -12,6 +14,7 @@ from app.config import get_settings
 from app.models.database import QueryRecord
 from app.models.schemas import (
     ChunkScore,
+    PipelineStep,
     CompareRequest,
     CompareResponse,
     QueryRequest,
@@ -19,7 +22,7 @@ from app.models.schemas import (
     RetrievalStrategy,
     TokenUsage,
 )
-from app.services.llm import get_chat_model
+from app.services.llm import LLMChainError, get_chat_model
 from app.services.pipeline_tracer import PipelineTracer
 from app.services.query_transform import QueryTransformService
 from app.services.reranker import CrossEncoderReranker
@@ -39,7 +42,7 @@ class RAGChainService:
         except RuntimeError as exc:
             raise HTTPException(
                 status_code=503,
-                detail="No LLM provider is configured. Please set GROQ_API_KEY in your .env file or enable OFFLINE_FALLBACK=true.",
+                detail="No LLM provider is configured. Set GOOGLE_API_KEY (and optionally GROQ_API_KEY as fallback) in your .env file, or enable OFFLINE_FALLBACK=true.",
             ) from exc
         self.prompt = ChatPromptTemplate.from_messages(
             [
@@ -57,9 +60,14 @@ class RAGChainService:
         )
         self.chain = self.prompt | self.llm | StrOutputParser()
 
-    async def run_query(self, request: QueryRequest, user_id: str | None = None) -> QueryResponse:
+    async def run_query(
+        self,
+        request: QueryRequest,
+        user_id: str | None = None,
+        on_step: Callable[[PipelineStep], None] | None = None,
+    ) -> QueryResponse:
         started = time.perf_counter()
-        tracer = PipelineTracer()
+        tracer = PipelineTracer(on_step)
         transformed_queries: list[str] = [request.query]
         retrieval_debug: list[RetrievalDebug] = []
 
@@ -71,7 +79,9 @@ class RAGChainService:
             details["step_back_enabled"] = request.enable_step_back
 
         with tracer.step("retrieval") as details:
-            retrieved_chunks, retrieval_debug = await self._retrieve_for_strategy(
+            # Embedding, BM25 and DB work is blocking — keep it off the event loop.
+            retrieved_chunks, retrieval_debug = await asyncio.to_thread(
+                self._retrieve_for_strategy,
                 request,
                 transformed_queries,
                 user_id=user_id,
@@ -83,8 +93,11 @@ class RAGChainService:
 
         with tracer.step("reranking") as details:
             if self._should_rerank(request.strategy):
-                selected_chunks, mode = self.reranker.rerank(
-                    request.query, retrieved_chunks[: request.top_k_initial], top_k=request.top_k_final
+                selected_chunks, mode = await asyncio.to_thread(
+                    self.reranker.rerank,
+                    request.query,
+                    retrieved_chunks[: request.top_k_initial],
+                    top_k=request.top_k_final,
                 )
             else:
                 selected_chunks = retrieved_chunks[: request.top_k_final]
@@ -116,12 +129,24 @@ class RAGChainService:
                 raise
             except Exception as exc:
                 err_str = str(exc)
-                if any(k in err_str.lower() for k in ("invalid api key", "authentication", "unauthorized", "invalid_api_key")):
+                lowered = err_str.lower()
+                # With a fallback chain, judge each provider's error on its own.
+                parts = (
+                    [str(err).lower() for _, err in exc.errors] if isinstance(exc, LLMChainError) else [lowered]
+                )
+                auth_markers = (
+                    "invalid api key", "api key not valid", "api_key_invalid", "authentication",
+                    "unauthorized", "invalid_api_key", "permission_denied",
+                )
+                rate_markers = ("rate_limit", "rate limit", "resource_exhausted", "quota", "429")
+                all_auth = all(any(k in part for k in auth_markers) for part in parts)
+                any_rate = any(any(k in part for k in rate_markers) for part in parts)
+                if all_auth and not any_rate:
                     raise HTTPException(
                         status_code=502,
-                        detail="LLM authentication failed. Please verify that your GROQ_API_KEY in .env is valid.",
+                        detail="LLM authentication failed for all configured providers. Verify GOOGLE_API_KEY / GROQ_API_KEY in .env.",
                     ) from exc
-                if "rate_limit" in err_str.lower() or "429" in err_str:
+                if any_rate:
                     raise HTTPException(
                         status_code=429,
                         detail="LLM rate limit reached. Please wait a moment before trying your query again.",
@@ -225,7 +250,7 @@ class RAGChainService:
             queries.append(await self.transforms.step_back(request.query))
         return queries
 
-    async def _retrieve_for_strategy(
+    def _retrieve_for_strategy(
         self,
         request: QueryRequest,
         transformed_queries: list[str],

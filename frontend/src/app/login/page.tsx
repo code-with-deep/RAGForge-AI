@@ -35,7 +35,9 @@ function LoginForm() {
       const response = await login(email, password);
       setToken(response.access_token);
       setShowSuccess(true);
-      const redirect = searchParams.get("redirect") || "/dashboard";
+      const requested = searchParams.get("redirect") ?? "";
+      // Only same-site paths — "//host" or "https://host" would be an open redirect.
+      const redirect = requested.startsWith("/") && !requested.startsWith("//") ? requested : "/dashboard";
       // Redirect after toast finishes — stored in ref so it can be cancelled on unmount
       redirectTimer.current = setTimeout(() => router.push(redirect), TOAST_DURATION);
     } catch (err) {

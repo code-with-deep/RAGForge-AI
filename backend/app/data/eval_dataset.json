@@ -1,8 +1,8 @@
 [
   {
     "question": "Which document file types does RAGForge ingest and which LangChain loaders are used?",
-    "reference_answer": "RAGForge ingests PDF, TXT, DOCX, and Markdown using PyPDFLoader, TextLoader, UnstructuredWordDocumentLoader, and UnstructuredMarkdownLoader or a text fallback.",
-    "expected_context": ["PDF files through PyPDFLoader", "text files through TextLoader", "DOCX files through UnstructuredWordDocumentLoader", "Markdown files through UnstructuredMarkdownLoader"]
+    "reference_answer": "RAGForge ingests PDF, TXT, DOCX, and Markdown using PyPDFLoader, TextLoader, Docx2txtLoader, and UnstructuredMarkdownLoader or a text fallback.",
+    "expected_context": ["PDF files through PyPDFLoader", "text files through TextLoader", "DOCX files through Docx2txtLoader", "Markdown files through UnstructuredMarkdownLoader"]
   },
   {
     "question": "What metadata is enriched during ingestion?",

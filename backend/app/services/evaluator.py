@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from pathlib import Path
+from typing import Callable
 from statistics import mean
 from uuid import uuid4
 
@@ -90,6 +92,7 @@ class EvaluationService:
         request: BatchEvaluationRequest,
         *,
         user_id: str | None = None,
+        progress: Callable[[int, int], None] | None = None,
     ) -> BatchEvaluationResponse:
         if not request.strategies:
             raise HTTPException(
@@ -105,10 +108,15 @@ class EvaluationService:
         if request.limit:
             dataset = dataset[: request.limit]
         results: list[EvaluationResponse] = []
+        total = len(request.strategies) * len(dataset)
+        if progress:
+            progress(0, total)
         for strategy in request.strategies:
             for item in dataset:
                 item.strategy = strategy
-                results.append(await self.evaluate_item(item, user_id=user_id))
+                results.append(await self._evaluate_with_backoff(item, user_id))
+                if progress:
+                    progress(len(results), total)
 
         metric_averages: dict[str, dict[str, float]] = {}
         for strategy in request.strategies:
@@ -134,10 +142,22 @@ class EvaluationService:
             metric_averages=metric_averages,
         )
 
+    async def _evaluate_with_backoff(self, item: EvaluationItem, user_id: str | None) -> EvaluationResponse:
+        """Free LLM tiers rate-limit by tokens/minute; a benchmark should wait it out, not die."""
+        for attempt in range(4):
+            try:
+                return await self.evaluate_item(item, user_id=user_id)
+            except HTTPException as exc:
+                if exc.status_code != 429 or attempt == 3:
+                    raise
+                await asyncio.sleep(10 * (attempt + 1))
+        raise AssertionError("unreachable")
+
     def list_results(self, user_id: str | None = None) -> list[EvaluationResultOut]:
         query = self.db.query(EvaluationResult).order_by(EvaluationResult.created_at.desc())
-        if user_id:
-            query = query.filter(EvaluationResult.user_id == user_id)
+        query = query.filter(
+            EvaluationResult.user_id == user_id if user_id else EvaluationResult.user_id.is_(None)
+        )
         rows = query.limit(500).all()
         return [
             EvaluationResultOut(
@@ -175,8 +195,12 @@ class EvaluationService:
         context: str,
     ) -> EvaluationScores:
         judge = await self._llm_judge(question, answer, reference_answer, context)
-        faithfulness = judge.get("faithfulness") or self._faithfulness(answer, context)
-        relevancy = judge.get("answer_relevancy") or self._answer_relevancy(question, answer, reference_answer)
+        faithfulness = judge.get("faithfulness")
+        if faithfulness is None:
+            faithfulness = self._faithfulness(answer, context)
+        relevancy = judge.get("answer_relevancy")
+        if relevancy is None:
+            relevancy = self._answer_relevancy(question, answer, reference_answer)
         precision = self._context_precision(retrieved_texts, expected_context, reference_answer)
         recall = self._context_recall(context, expected_context, reference_answer)
         aggregate = mean([faithfulness, relevancy, precision, recall])

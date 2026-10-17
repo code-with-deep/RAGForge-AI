@@ -1,16 +1,39 @@
 from __future__ import annotations
 
 import math
+import threading
 
 from app.config import get_settings
 from app.models.schemas import ChunkScore
 from app.services.utils import normalize_scores, tokenize
 
 
+# RAGChainService (and so CrossEncoderReranker) is built per request; the model must
+# outlive it or every query pays a multi-second reload.
+_MODEL_LOCK = threading.Lock()
+_MODEL_CACHE: dict[str, object] = {}
+_MODEL_ERRORS: dict[str, str] = {}
+
+
+def _get_cross_encoder(model_name: str):
+    with _MODEL_LOCK:
+        if model_name in _MODEL_CACHE:
+            return _MODEL_CACHE[model_name]
+        if model_name in _MODEL_ERRORS:
+            raise RuntimeError(_MODEL_ERRORS[model_name])
+        try:
+            from sentence_transformers import CrossEncoder
+
+            _MODEL_CACHE[model_name] = CrossEncoder(model_name)
+        except Exception as exc:
+            _MODEL_ERRORS[model_name] = str(exc)
+            raise
+        return _MODEL_CACHE[model_name]
+
+
 class CrossEncoderReranker:
     def __init__(self) -> None:
         self.settings = get_settings()
-        self._model = None
         self._load_error: str | None = None
 
     def rerank(self, query: str, chunks: list[ChunkScore], *, top_k: int) -> tuple[list[ChunkScore], str]:
@@ -39,12 +62,9 @@ class CrossEncoderReranker:
         if not self.settings.enable_cross_encoder:
             return None, "cross-encoder-disabled"
         try:
-            if self._model is None:
-                from sentence_transformers import CrossEncoder
-
-                self._model = CrossEncoder(self.settings.reranker_model)
+            model = _get_cross_encoder(self.settings.reranker_model)
             pairs = [(query, chunk.text) for chunk in chunks]
-            raw = self._model.predict(pairs)
+            raw = model.predict(pairs)
             scores = [float(score) for score in raw]
             return [1.0 / (1.0 + math.exp(-score)) for score in scores], "cross-encoder"
         except Exception as exc:

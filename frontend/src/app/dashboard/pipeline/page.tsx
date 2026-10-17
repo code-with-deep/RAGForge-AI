@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, Search } from "lucide-react";
-import { getPipeline } from "@/lib/api";
+import { getPipeline, getQueryChunks } from "@/lib/api";
 import type { QueryResponse } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,39 +27,28 @@ function PipelineContent() {
     setLoading(true);
     setError(null);
     try {
-      const payload = await getPipeline(target);
+      // Build everything from the stored record for this ID — never from the latest
+      // query, which would mix another query's chunks/latency into this pipeline.
+      const [payload, chunks] = await Promise.all([getPipeline(target), getQueryChunks(target)]);
       const data = payload as Record<string, unknown>;
-      const base: QueryResponse =
-        latest ?? {
-          query_id: "",
-          original_query: "",
-          strategy: "hybrid_rerank",
-          transformed_queries: [],
-          answer: "",
-          retrieved_chunks: [],
-          selected_chunks: [],
-          final_prompt: "",
-          token_usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0, context_tokens: 0 },
-          latency_ms: 0,
-          latency: {},
-          pipeline: [],
-          debugging: {}
-        };
+      const pipeline = (data.pipeline ?? []) as QueryResponse["pipeline"];
+      const latency = (data.latency ?? {}) as QueryResponse["latency"];
+      const transformed = pipeline.find((step) => step.name === "query_transformation")?.details
+        ?.transformed_queries;
       setRemote({
-        ...base,
         query_id: String(data.query_id),
         original_query: String(data.original_query),
         strategy: String(data.strategy) as QueryResponse["strategy"],
-        pipeline: data.pipeline as QueryResponse["pipeline"],
-        final_prompt: String(data.final_prompt),
+        transformed_queries: Array.isArray(transformed) ? (transformed as string[]) : [],
         answer: String(data.answer),
+        retrieved_chunks: chunks.retrieved_chunks,
+        selected_chunks: chunks.selected_chunks,
+        final_prompt: String(data.final_prompt),
         token_usage: data.token_usage as QueryResponse["token_usage"],
-        latency: data.latency as QueryResponse["latency"],
-        latency_ms: base.latency_ms,
-        transformed_queries: base.transformed_queries,
-        retrieved_chunks: base.retrieved_chunks,
-        selected_chunks: base.selected_chunks,
-        debugging: base.debugging
+        latency_ms: Object.values(latency).reduce((sum, ms) => sum + ms, 0),
+        latency,
+        pipeline,
+        debugging: {}
       });
     } catch (err) {
       setError(
@@ -70,7 +59,7 @@ function PipelineContent() {
     } finally {
       setLoading(false);
     }
-  }, [queryId, latest]);
+  }, [queryId]);
 
   // Auto-load when navigated from history page with ?id=
   useEffect(() => {
